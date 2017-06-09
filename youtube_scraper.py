@@ -481,12 +481,12 @@ def uploadToS3(args, video_id):
     type_ = row["Format"].tolist()[0]
     pdb.set_trace()
     if path == None or not os.path.exists(path):
-        fileLoc = findFile(video_id+"."+type_)
+        path = findFile(video_id+"."+type_)
         pdb.set_trace()
-        infoDict["File Location"] = fileLoc
+        infoDict["File Location"] = path
         create_or_update_entry(infoDict)
     pdb.set_trace()
-    if fileLoc == None:
+    if path == None:
         infoDict["Downloaded"] = False
         return infoDict
     # get second to last occurence
