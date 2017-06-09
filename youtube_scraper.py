@@ -283,7 +283,6 @@ def scrape_ids(args):
     # query term.
     counter = 0
     for key in QUERIES:
-        print("AAAAAAAAA", key)
         search = youtube_api.search().list(
             q=key,
             type="video",
@@ -296,10 +295,12 @@ def scrape_ids(args):
             searchResponse = search.execute()
             for search_result in searchResponse.get("items", []):
                 try:
-                    vidID = create_or_update_entry(
-                        {"UUID": str(search_result["id"]["videoId"]), "Query": str(key)}, shouldSave=False)
+                    uid = str(search_result["id"]["videoId"])
+                    create_or_update_entry(
+                        {"UUID": uid, "Query": str(key)}, shouldSave=False)
                     print(counter)
-                    counter += 1
+                    if len(information_csv[information_csv['UUID'].str.contains(uid)]) == 0:
+                        counter += 1
                 except Exception, e:
                     print("Error on item: ", str(e)+"\n"+traceback.format_exc())
                 if counter >= NUM_VIDS:
@@ -386,6 +387,7 @@ def convertVideo(video_id):
     )
     ff.run()
     information_csv[information_csv["UUID"] == video_id]["Format"] = ".mp4"
+    information_csv[information_csv["UUID"] == video_id]["File Location"] = newPath
 
 
 def stripAudio(video_id):
@@ -533,8 +535,7 @@ def createBotoDir(folder):
         )
 
 def createBotoDirs():
-    folders = ["toCheck/", "tmp/", "toConvert/", "Conversation/",
-                "Multimodal/", "Faces/", "Trash/"]
+    folders = ["Conversation/", "Multimodal/", "Faces/", "Trash/"]
     for folder in folders:
         createBotoDir(folder)
 
@@ -637,6 +638,7 @@ def download_video_wrapper(video_id):
 
 def uploadToS3_wrapper(args, video_id):
     try:
+        pdb.set_trace()
         return uploadToS3(args, video_id)
     except Exception, e:
         pdb.set_trace()
@@ -705,7 +707,8 @@ def main():
                 if args.categorize:
                     create_or_update_entry(categorize_video_wrapper(args, _id))
                 if args.upload and args.categorize:
-                    create_or_update_entry(uploadToS3_wrapper(args, information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
+                    if information_csv["File Location"].tolist()[0] != "":
+                    create_or_update_entry(uploadToS3_wrapper(args, information_csv[information_csv["UUID"] == _id]["File Location"].tolist()[0]), callback=create_or_update_entry)
                 # if args.query != None:
                 #     pool.apply_async(download_video_wrapper, args=(
                 #         _id, ), callback=create_or_update_entry)
