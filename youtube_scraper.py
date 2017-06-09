@@ -171,9 +171,6 @@ def convert_caption_to_str(trackList):
     """
     if trackList == None:
         return ""
-    if type(trackList) is str:
-        pdb.set_trace()
-        return trackList
     retStr = ""
     for track in trackList:
         retStr += "Starts at " + str(track.start) + "s and lasts " + str(
@@ -468,7 +465,6 @@ def uploadToS3(args, video_id):
     Upload to S3 and update information_csv
     """
     global information_csv
-    pdb.set_trace()
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
     if information_csv["File Location"].tolist()[0] != "":
@@ -726,7 +722,6 @@ def main():
                 create_or_update_entry(download_video_wrapper(_id))
                 if args.categorize:
                     create_or_update_entry(categorize_video_wrapper(args, _id))
-                pdb.set_trace()
                 if args.upload and args.categorize:
                     create_or_update_entry(uploadToS3_wrapper(args, _id))
                 # pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
