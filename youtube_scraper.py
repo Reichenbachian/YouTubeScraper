@@ -433,6 +433,7 @@ def hasConversation(id_):
     vc = VadCollector.VadCollector(
         path, CONVERSATION_AGGRESSIVENESS, framesize, padding_width, thresh=0.9)
     percentage = vc.get_percentage()
+    print_and_log(id_ + " is " + str(percentage) + "talk.")
     os.remove(path)
     return percentage > SPEECH_TRHESHHOLD
 
