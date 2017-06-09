@@ -594,7 +594,8 @@ def clean_downloads():
                     uid = file[:-4] if ".mp4" in file else file[:-5]
                     path = os.path.join(root, file)
                     if "temp" in file or "tmp" in root:  # Temp file
-                        os.remove(os.path.join(root, file))
+                        remPath = os.path.join(root, file)
+                        os.remove(remPath)
                         logging.info("Removing "+str(remPath) +
                                      "as it is a partial download")
                     else:
