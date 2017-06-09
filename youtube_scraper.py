@@ -152,7 +152,7 @@ def recover_or_get_youtube_id_dictionary(args):
             # convertDataTypes()
         for key in QUERIES:
             if len(information_csv[(information_csv['Downloaded'] != True) &\
-                        (information_csv['Query'].str.contains(key))].tolist()) > NUM_VIDS\
+                        (information_csv['Query'].str.contains(key))]["Query"].tolist()) > NUM_VIDS\
                         and not args.rebuild:
                 logging.info("Found query:" + key +
                              " in cached search results, using cached search")
