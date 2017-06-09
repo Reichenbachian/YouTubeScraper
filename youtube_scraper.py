@@ -704,6 +704,12 @@ def main():
         createBotoDirs()
         print_and_log("Created Boto3 directories if not already there")
 
+    if args.categorize:
+        print_and_log("Loading Face Tracker...")
+        graph = load_model_pb(FACE_DETECTION_MODEL)
+        sess = tf.Session(graph=graph)
+        print_and_log("Processing downloaded Videos first...")
+
     # Create output folder if it's not there
     createOutputDirs()
     print_and_log("Created output directories if not already there")
@@ -738,10 +744,6 @@ def main():
                 counter += 1
 
     if args.categorize:
-        print_and_log("Loading Face Tracker...")
-        graph = load_model_pb(FACE_DETECTION_MODEL)
-        sess = tf.Session(graph=graph)
-        print_and_log("Processing downloaded Videos first...")
         for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
             create_or_update_entry(categorize_video_wrapper(args, _id))
             # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
