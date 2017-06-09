@@ -481,7 +481,6 @@ def uploadToS3(args, video_id):
     type_ = row["Format"].tolist()[0]
     if path == None or not os.path.exists(path):
         path = findFile(video_id+"."+type_)
-        pdb.set_trace()
         infoDict["File Location"] = path
         create_or_update_entry(infoDict)
     if path == None:
@@ -773,7 +772,7 @@ def main():
 
     if args.categorize:
         for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(args, _id))
+            create_or_update_entry(*categorize_video_wrapper(args, _id))
             # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
 
 
@@ -783,7 +782,7 @@ def main():
                                           (information_csv['File Location'].str.contains("Multimodal") |
                                            information_csv['File Location'].str.contains("Conversation") |
                                            information_csv['File Location'].str.contains("Faces")))]["UUID"].tolist()):
-            create_or_update_entry(uploadToS3_wrapper(args, _id))
+            create_or_update_entry(*uploadToS3_wrapper(args, _id))
             # pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
     saveCSV(CSV_PATH)
     pool.close()
