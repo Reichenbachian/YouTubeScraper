@@ -296,9 +296,7 @@ def scrape_ids(args):
             for search_result in searchResponse.get("items", []):
                 try:
                     uid = str(search_result["id"]["videoId"])
-                    create_or_update_entry(
-                        {"UUID": uid, "Query": str(key)}, shouldSave=False)
-                    print(counter)
+                    create_or_update_entry({"UUID": uid, "Query": str(key)}, shouldSave=False)
                     if len(information_csv[information_csv['UUID'].str.contains(uid)]) == 0:
                         counter += 1
                 except Exception, e:
@@ -465,6 +463,8 @@ def uploadToS3(args, video_id):
     global information_csv
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
+    if information_csv["File Location"].tolist()[0] != "":
+        return infoDict
     path = row["File Location"].tolist()[0]
     # get second to last occurence
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
@@ -707,7 +707,6 @@ def main():
                 if args.categorize:
                     create_or_update_entry(categorize_video_wrapper(args, _id))
                 if args.upload and args.categorize:
-                    if information_csv["File Location"].tolist()[0] != "":
                     create_or_update_entry(uploadToS3_wrapper(args, information_csv[information_csv["UUID"] == _id]["File Location"].tolist()[0]), callback=create_or_update_entry)
                 # if args.query != None:
                 #     pool.apply_async(download_video_wrapper, args=(
