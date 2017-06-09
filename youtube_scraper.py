@@ -209,7 +209,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
     """
     global information_csv, backup_counter
     if infoDict is None:
-        print_and_log("Invalid entry blocked. Infodict is none. " + "\n" + traceback.format_exc(), error=True)
+        print_and_log("Invalid entry blocked. Infodict is none. " + "\n" + traceback.print_tb(), error=True)
         return
     if "UUID" not in infoDict.keys() or len(infoDict["UUID"]) != 11: # all infoDicts need a UUID entry for row identification
                                     # and all UUIDs are 11 characters long.
