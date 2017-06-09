@@ -246,7 +246,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
                 if column == "Downloaded":
                     newRow.append(
                         False if "Downloaded" not in infoDict.keys() else infoDict["Downloaded"])
-                elif column == "Duration" and (infoDict["File Location"] != "" or row_in_csv["File Location"] != ""):
+                elif column == "Duration" and "File Location" in infoDict.keys() and (infoDict["File Location"] != "" or row_in_csv["File Location"] != ""):
                     cap = cv2.VideoCapture(row_in_csv["File Location"].tolist()[0] if infoDict[
                                            "File Location"] == "" else infoDict["File Location"])
                     newRow.append(cap.get(cv.CV_CAP_PROP_FRAME_COUNT))
@@ -267,7 +267,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
     information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
 
 
-def scrape_ids(args, key):
+def scrape_ids(args):
     """
     Scrapes youtube and creates or updates entries.
     """
@@ -290,7 +290,7 @@ def scrape_ids(args, key):
                 for search_result in searchResponse.get("items", []):
                     try:
                         vidID = create_or_update_entry(
-                            {"UUID": str(search_result["id"]["videoId"]), "Query": str(key)})
+                            {"UUID": str(search_result["id"]["videoId"]), "Query": str(key)}, shouldSave=False)
                     except Exception, e:
                         print("Error on item: ", str(e))
                 try:
@@ -451,9 +451,8 @@ def uploadToS3(args, video_id):
     infoDict = {"UUID": video_id}
     path = row["File Location"].tolist()[0]
     # get second to last occurence
-    s3path = path[path.rfind("/", 0, path.rfind("/")):]
+    s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
     print_and_log("Uploading " + path + " to " + s3path)
-    pdb.set_trace()
     bucket.upload_file(path, s3path)
     infoDict["Uploaded"] = True
     return infoDict
@@ -517,14 +516,24 @@ def createOutputDirs():
     """
     Creates the output directory
     """
-    createDir("out/")
-    createDir("out/toCheck")
-    createDir("out/tmp")
-    createDir("out/toConvert")
-    createDir("out/Conversation")
-    createDir("out/Multimodal")
-    createDir("out/Faces")
-    createDir("out/Trash")
+    folders = ["out/", "out/toCheck/", "out/tmp/", "out/toConvert/", "out/Conversation/",
+                "out/Multimodal/", "out/Faces/", "out/Trash/"]
+    for folder in folders:
+        createDir(folder)
+
+def createBotoDir(folder):
+    global bucket
+    bucket.put_object(
+        Bucket='youtube-video-data',
+        Body='',
+        Key=folder
+        )
+
+def createBotoDirs():
+    folders = ["toCheck/", "tmp/", "toConvert/", "Conversation/",
+                "Multimodal/", "Faces/", "Trash/"]
+    for folder in folders:
+        createBotoDir(folder)
 
 
 def print_and_log(str_, error=False):
@@ -640,10 +649,8 @@ def main():
     args = parse_args()
     createOutputDirs()
     NUM_VIDS = int(args.num_vids)
-    # Reduce number of backups during scraping phase,
-    BACKUP_EVERY_N_VIDEOS = int(args.backup_every)*20
-    # otherwise there are soooo many.(It hinders runtime.) It gets set back
-    # later to the original.
+    BACKUP_EVERY_N_VIDEOS = int(args.backup_every)
+
     OPEN_ON_DOWNLOAD = args.openOnDownload
     if args.query != None:
         QUERIES = args.query if ',' not in args.query else args.query.split(
@@ -653,11 +660,13 @@ def main():
     recover_or_get_youtube_id_dictionary(args)
     information_csv = information_csv.replace(np.nan, "")
     saveCSV(CSV_PATH)
-    BACKUP_EVERY_N_VIDEOS = int(args.backup_every)
+
     if args.upload:
         print_and_log("Connecting to s3...")
         s3 = boto3.resource('s3')
         bucket = s3.Bucket("youtube-video-data")
+        createBotoDirs()
+        print_and_log("Created Boto3 directories if not already there")
 
     # Create output folder if it's not there
     createOutputDirs()
@@ -682,6 +691,7 @@ def main():
             create_or_update_entry(categorize_video_wrapper(args, _id))
             # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
 
+    counter = 0
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
@@ -701,7 +711,6 @@ def main():
                 #     pool.apply_async(uploadToS3_wrapper, args=(
                 #         information_csv["File Location"].tolist()[0], ), callback=create_or_update_entry)
                 counter += 1
-    information_csv["Uploaded"] = ""
     if args.upload:
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == True) &
                                           ((information_csv["Uploaded"] == False) | (information_csv["Uploaded"] == "")) &
