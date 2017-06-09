@@ -495,16 +495,14 @@ def categorize_video(args, video_id):
     infoDict = {"UUID": video_id}
     fileLoc = row["File Location"].tolist()[0]
     fileName = video_id+"."+row["Format"].tolist()[0]
-    if fileLoc == None:
-        fileLoc = findFile(fileName)
-    if fileLoc == None:
-        infoDict["Downloaded"] = False
-        return infoDict
     type_ = row["Format"].tolist()[0]
     if not os.path.exists(fileLoc):
         fileLoc = findFile(video_id+"."+type_)
         infoDict["File Location"] = fileLoc
         create_or_update_entry(infoDict)
+    if fileLoc == None:
+        infoDict["Downloaded"] = False
+        return infoDict
     if "toCheck" not in fileLoc and "toConvert" not in fileLoc:
         print_and_log("Already checked..."+video_id)
         return row.to_dict(orient='records')[0]
