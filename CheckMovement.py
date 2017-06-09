@@ -62,7 +62,7 @@ class MotionDetectorInstantaneous():
         started = time.time()
         counter = 0
         thresh = 10
-        while True:
+        for i in tqdm(range(thresh)):
             print(counter)
             ret, curframe = self.capture.read()
             for i in range(self.skipFrames-1):
