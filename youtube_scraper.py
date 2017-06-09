@@ -301,7 +301,7 @@ def scrape_ids(args):
                 try:
                     uid = str(search_result["id"]["videoId"])
                     create_or_update_entry({"UUID": uid, "Query": str(key)}, shouldSave=False)
-                    if len(information_csv[information_csv['UUID'].str.contains(uid)]) == 0:
+                    if uid not in information_csv["UUID"]:
                         counter += 1
                 except Exception, e:
                     print("Error on item: ", str(e)+"\n"+traceback.format_exc())
