@@ -479,23 +479,18 @@ def uploadToS3(args, video_id):
         return infoDict
     path = row["File Location"].tolist()[0]
     type_ = row["Format"].tolist()[0]
-    pdb.set_trace()
     if path == None or not os.path.exists(path):
         path = findFile(video_id+"."+type_)
         pdb.set_trace()
         infoDict["File Location"] = path
         create_or_update_entry(infoDict)
-    pdb.set_trace()
     if path == None:
         infoDict["Downloaded"] = False
         return infoDict
     # get second to last occurence
-    pdb.set_trace()
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
     print_and_log("Uploading " + path + " to " + s3path)
-    pdb.set_trace()
     bucket.upload_file(path, s3path)
-    pdb.set_trace()
     infoDict["Uploaded"] = True
     return infoDict
 
