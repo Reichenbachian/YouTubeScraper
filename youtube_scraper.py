@@ -468,6 +468,7 @@ def uploadToS3(args, video_id):
     Upload to S3 and update information_csv
     """
     global information_csv
+    pdb.set_trace()
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
     if information_csv["File Location"].tolist()[0] != "":

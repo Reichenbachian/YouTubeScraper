@@ -27,7 +27,7 @@ class MotionDetectorInstantaneous():
             counter += 1
         return True
 
-    def __init__(self, fileName, threshold=1, showWindows=True, numFrameCheck=50):
+    def __init__(self, fileName, threshold=1, showWindows=True, numFrameCheck=20):
         self.file = fileName
         self.frame = None
         
