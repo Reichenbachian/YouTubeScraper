@@ -63,6 +63,7 @@ class MotionDetectorInstantaneous():
         counter = 0
         thresh = 10
         while True:
+            print(counter)
             ret, curframe = self.capture.read()
             for i in range(self.skipFrames-1):
                 ret, curframe = self.capture.read()
@@ -76,13 +77,13 @@ class MotionDetectorInstantaneous():
             if self.somethingHasMoved():
                 counter += 1
             if counter >= thresh:
-                return (self.file, True)
+                return True
                 
             cv.Copy(self.frame2gray, self.frame1gray)
             c=cv.WaitKey(1) % 0x100
             if c==27 or c == 10: #Break if user enters 'Esc'.
                 break            
-        return (self.file, False)
+        return False
     
 
     def processImage(self, frame):
