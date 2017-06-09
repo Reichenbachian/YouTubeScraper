@@ -516,8 +516,12 @@ def categorize_video(args, video_id):
             print_and_log("Convert argument not selected. Will not convert this video: " + str(video_id))
         return row.to_dict(orient='records')[0]
     path = "out/toCheck/"+fileName
+    print_and_log("Checking movement for " + video_id + "...")
     doesHaveMovement = isMoving(path)
+    print_and_log(video_id + " moves? " + doesHaveMovement)
+    print_and_log("Checking conversation for " + video_id + "...")
     doesHaveConversation = hasConversation(video_id)
+    print_and_log(video_id + " converses? " + doesHaveConversation)
     doesHaveFaces = False
     newPath = "out/Trash/"+fileName
     if doesHaveMovement:
@@ -714,7 +718,8 @@ def main():
         sess = tf.Session(graph=graph)
         print_and_log("Processing downloaded Videos first...")
         for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
-            pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+            create_or_update_entry(categorize_video_wrapper(args, _id))
+            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
 
     counter = 0
     if args.query != None:
@@ -723,11 +728,16 @@ def main():
             for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
-                pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
+                create_or_update_entry(download_video_wrapper(_id))
                 if args.categorize:
-                    pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+                    create_or_update_entry(categorize_video_wrapper(args, _id))
                 if args.upload and args.categorize:
-                    pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
+                    create_or_update_entry(uploadToS3_wrapper(args, _id))
+                # pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
+                # if args.categorize:
+                #     pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+                # if args.upload and args.categorize:
+                #     pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
                 counter += 1
     if args.upload:
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == True) &
@@ -735,7 +745,8 @@ def main():
                                           (information_csv['File Location'].str.contains("Multimodal") |
                                            information_csv['File Location'].str.contains("Conversation") |
                                            information_csv['File Location'].str.contains("Faces")))]["UUID"].tolist()):
-            pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
+            create_or_update_entry(uploadToS3_wrapper(args, _id))
+            # pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
     saveCSV(CSV_PATH)
     pool.close()
     pool.join()
