@@ -151,7 +151,10 @@ def recover_or_get_youtube_id_dictionary(args):
             information_csv = pd.read_csv(CSV_PATH)
             # convertDataTypes()
         for key in QUERIES:
-            if key in information_csv["Query"].tolist() and not args.rebuild:
+            if len(information_csv[((information_csv["Downloaded"] == False) |\
+                    (information_csv["Downloaded"] == "")) &\
+                    (information_csv['Query'].str.contains(key))].tolist()) > NUM_VIDS\
+                    and not args.rebuild:
                 logging.info("Found query:" + key +
                              " in cached search results, using cached search")
             else:
@@ -711,7 +714,7 @@ def main():
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
-            for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
+            for _id in information_csv[(information_csv["Query"] == q) & ((information_csv["Downloaded"] == False) | (information_csv["Downloaded"] == ""))]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
                 create_or_update_entry(download_video_wrapper(_id, ))
