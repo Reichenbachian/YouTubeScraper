@@ -65,7 +65,7 @@ parser = HTMLParser.HTMLParser()
 # Create dataframe
 columns = ["Url", "UUID", "Date Updated", "Format", "File Location", "Dimensions", "Bitrate", "Downloaded",
            "Query", "Likes", "Dislikes", "Rating", "Title", "Description", "Duration",
-           "Captions", "Size(bytes)", "Keywords", "Length(seconds)", "Viewcount", "Faces", "Conversation", "Uploaded"]
+           "Captions", "Size(bytes)", "Keywords", "Length(seconds)", "Viewcount", "Faces", "Conversation", "Author", "Uploaded"]
 
 columnTypes = [str, str, str, str, str, str, float, bool, str, float, float,
                str, str, str, str, str, float, str, float, float, bool, bool, bool]
