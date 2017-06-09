@@ -208,7 +208,7 @@ def create_or_update_entry(infoDict, success=True, shouldSave=True):
     Duration
     """
     global information_csv, backup_counter
-    if not sucess:
+    if not success:
         return
     if infoDict is None:
         print_and_log("Invalid entry blocked. Infodict is none. " + "\n", error=True)
