@@ -495,6 +495,12 @@ def categorize_video(args, video_id):
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
     fileLoc = row["File Location"].tolist()[0]
+    fileName = video_id+"."+row["Format"].tolist()[0]
+    if fileLoc == None:
+        fileLoc = findFile(fileName)
+    if fileLoc == None:
+        infoDict["Downloaded"] = False
+        return infoDict
     type_ = row["Format"].tolist()[0]
     if not os.path.exists(fileLoc):
         fileLoc = findFile(video_id+"."+type_)
@@ -512,7 +518,6 @@ def categorize_video(args, video_id):
         else:
             print_and_log("Convert argument not selected. Will not convert this video: " + str(video_id))
         return row.to_dict(orient='records')[0]
-    fileName = video_id+"."+row["Format"].tolist()[0]
     path = "out/toCheck/"+fileName
     doesHaveMovement = isMoving(path)
     doesHaveConversation = hasConversation(video_id)
