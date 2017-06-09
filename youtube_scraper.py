@@ -151,7 +151,7 @@ def recover_or_get_youtube_id_dictionary(args):
             information_csv = pd.read_csv(CSV_PATH)
             # convertDataTypes()
         for key in QUERIES:
-            if len(information_csv[(information_csv['Downloaded'] == "") &\
+            if len(information_csv[(information_csv['Downloaded'] != True) &\
                         (information_csv['Query'].str.contains(key))].tolist()) > NUM_VIDS\
                         and not args.rebuild:
                 logging.info("Found query:" + key +
