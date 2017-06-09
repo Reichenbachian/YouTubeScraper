@@ -477,6 +477,7 @@ def uploadToS3(args, video_id):
         return infoDict
     path = row["File Location"].tolist()[0]
     # get second to last occurence
+    pdb.set_trace()
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
     print_and_log("Uploading " + path + " to " + s3path)
     pdb.set_trace()
