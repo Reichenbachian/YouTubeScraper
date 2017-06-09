@@ -62,7 +62,7 @@ class MotionDetectorInstantaneous():
         for i in tqdm(range(self.numFrameCheck)):
             print(counter)
             ret, curframe = self.capture.read()
-            for i in range(self.skipFrames-1):
+            for i in range(skipFrames-1):
                 ret, curframe = self.capture.read()
             if not self.getFrame():
                 break
