@@ -210,7 +210,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
     global information_csv, backup_counter
     if infoDict is None or "UUID" not in infoDict.keys() or len(infoDict["UUID"]) != 11: # all infoDicts need a UUID entry for row identification
                                     # and all UUIDs are 11 characters long.
-        print_and_log("Invalid entry blocked", error=True)
+        print_and_log("Invalid entry blocked: " + str(infoDict.keys()) + "\n" + traceback.format_exc(), error=True)
         return
     try: # make sure whole process doesn't stop based on one error.
         if backup_counter >= BACKUP_EVERY_N_VIDEOS and shouldSave:
