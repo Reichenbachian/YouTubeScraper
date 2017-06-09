@@ -521,7 +521,7 @@ def categorize_video(args, video_id):
     path = "out/toCheck/"+fileName
     print_and_log("Checking movement for " + video_id + "...")
     doesHaveMovement = isMoving(path)
-    print_and_log(video_id + " moves? " + doesHaveMovement)
+    print_and_log(video_id + " moves? " + str(doesHaveMovement))
     print_and_log("Checking conversation for " + video_id + "...")
     doesHaveConversation = hasConversation(video_id)
     print_and_log(video_id + " converses? " + doesHaveConversation)
