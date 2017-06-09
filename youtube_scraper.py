@@ -513,12 +513,12 @@ def categorize_video(args, video_id):
     newPath = "out/Trash/"+fileName
     if doesHaveMovement:
         doesHaveFaces = hasFaces(path)
-    print("Face, "+str(doesHaveFaces)+" Speech, "+str(doesHaveConversation))
+    print("Face, "+str(doesHaveFaces)+"| Speech, "+str(doesHaveConversation))
     if doesHaveConversation and doesHaveFaces:
         newPath = "out/Multimodal/"+fileName
-    if doesHaveConversation:
+    elif doesHaveConversation:
         newPath = "out/Conversation/"+fileName
-    if doesHaveFaces:
+    elif doesHaveFaces:
         newPath = "out/Faces/"+fileName
     moveFromTo(path, newPath)
     infoDict["Faces"] = doesHaveFaces
