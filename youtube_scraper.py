@@ -473,13 +473,13 @@ def uploadToS3(args, video_id):
     global information_csv
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
+    pdb.set_trace()
     if information_csv["File Location"].tolist()[0] != "":
         return infoDict
     path = row["File Location"].tolist()[0]
     # get second to last occurence
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
     print_and_log("Uploading " + path + " to " + s3path)
-    pdb.set_trace()
     bucket.upload_file(path, s3path)
     infoDict["Uploaded"] = True
     return infoDict
