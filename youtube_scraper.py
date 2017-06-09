@@ -524,7 +524,7 @@ def categorize_video(args, video_id):
     print_and_log(video_id + " moves? " + str(doesHaveMovement))
     print_and_log("Checking conversation for " + video_id + "...")
     doesHaveConversation = hasConversation(video_id)
-    print_and_log(video_id + " converses? " + doesHaveConversation)
+    print_and_log(video_id + " converses? " + str(doesHaveConversation))
     doesHaveFaces = False
     newPath = "out/Trash/"+fileName
     if doesHaveMovement:
