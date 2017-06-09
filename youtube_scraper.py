@@ -503,9 +503,12 @@ def categorize_video(args, video_id):
     if fileLoc == None:
         infoDict["Downloaded"] = False
         return infoDict
-    if "toCheck" not in fileLoc and "toConvert" not in fileLoc:
+    if "toConvert" in fileLoc:
+        print_and_log("Needs to be converted before categorization..."+video_id)
+        return infoDict
+    if "toCheck" not in fileLoc:
         print_and_log("Already checked..."+video_id)
-        return row.to_dict(orient='records')[0]
+        return infoDict
     if "" == row["File Location"].tolist()[0]:
         print_and_log("Video not where expected..."+video_id, error=True)
         return
