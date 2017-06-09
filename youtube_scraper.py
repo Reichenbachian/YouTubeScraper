@@ -720,7 +720,7 @@ def main():
                 if args.categorize:
                     create_or_update_entry(categorize_video_wrapper(args, _id))
                 if args.upload and args.categorize:
-                    create_or_update_entry(uploadToS3_wrapper(args, information_csv[information_csv["UUID"] == _id]["File Location"].tolist()[0]), callback=create_or_update_entry)
+                    create_or_update_entry(uploadToS3_wrapper(args, _id), callback=create_or_update_entry)
                 # if args.query != None:
                 #     pool.apply_async(download_video_wrapper, args=(
                 #         _id, ), callback=create_or_update_entry)
