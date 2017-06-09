@@ -34,6 +34,8 @@ import tensorflow as tf
 from CheckMovement import MotionDetectorInstantaneous
 from CheckFaces import load_model_pb, checkForFace
 import VadCollector
+import traceback
+
 
 # Set DEVELOPER_KEY to the API key value from the APIs & auth > Registered apps
 # tab of
@@ -58,7 +60,7 @@ CSV_PATH = None  # items.csv should be in out/
 QUERIES = []  # Queries given as command line arguments split up.
 OPEN_ON_DOWNLOAD = False # Should the program open the videos once downloaded?
 bucket, graph, sess = None, None, None  # Initializing variables globally
-
+parser = HTMLParser.HTMLParser()
 
 # Create dataframe
 columns = ["Url", "UUID", "Date Updated", "Format", "File Location", "Dimensions", "Bitrate", "Downloaded",
@@ -114,7 +116,7 @@ def saveCSV(path):
             information_csv.to_csv(path, index=False, encoding='utf-8')
         print_and_log("Saved")
     except Exception, e:
-        logging.error("Failed to save csv:"+str(e))
+        logging.error("Failed to save csv:"+str(e)+"\n"+traceback.format_exc())
 
 
 def convertDataTypes():
@@ -165,6 +167,9 @@ def convert_caption_to_str(trackList):
     """
     if trackList == None:
         return ""
+    if type(trackList) is str:
+        pdb.set_trace()
+        return trackList
     retStr = ""
     for track in trackList:
         retStr += "Starts at " + str(track.start) + "s and lasts " + str(
@@ -224,7 +229,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
                     information_csv.loc[information_csv[
                         "UUID"] == uid, column] = infoDict[column]
             except Exception, e:
-                print_and_log("Error on item! "+str(e))
+                print_and_log("Error on item! "+str(e)+"\n"+traceback.format_exc())
                 pdb.set_trace()
         elif len(row_in_csv) > 1: # If there are multiple entries
             rows = row_in_csv
@@ -263,7 +268,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
             print_and_log("Error in updating an entry", error=True)
     except Exception, e:
         print_and_log("ERROR ON THREAD: FAILED TO ADD OBJECT!!!!!" +
-                    str(e), error=True)
+                    str(e)+"\n"+traceback.format_exc(), error=True)
         pdb.set_trace()
     information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
 
@@ -296,7 +301,7 @@ def scrape_ids(args):
                     print(counter)
                     counter += 1
                 except Exception, e:
-                    print("Error on item: ", str(e))
+                    print("Error on item: ", str(e)+"\n"+traceback.format_exc())
                 if counter >= NUM_VIDS:
                     counter = 0
                     allResultsRead = True
@@ -314,23 +319,22 @@ def scrape_ids(args):
                 allResultsRead = True
 
 
-@retry(wait_fixed=600000, stop_max_attempt_number=5)
+# @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def download_video(uid):
     """
     Downloads a video of a specific uid
     """
-    video_url = "youtube.com/watch?v=" + \
-        uid  # Not calling uid_to_url as it causes problems when multithreaded
+    video_url = "youtube.com/watch?v=" + uid  # Not calling uid_to_url as it causes problems when multithreaded
     logging.info("Downloading video at url: %s" %
                  ("youtube.com/watch?v="+video_url))
     video_object = pafy.new(video_url)
     stream = video_object.getbest()
     filename = uid+"."+stream.extension
-    filepath = "toCheck/"+filename if ".mp4" in filepath else "toConvert/"+filename+".webm"
+    filepath = "out/toCheck/"+filename if "mp4" in filename else "out/toConvert/"+filename
     # starts download in the same directory of the script
     filename = stream.download(filepath=filepath)
     logging.info("Finished downloading video at url: %s" % (video_url))
-    captions = download_caption(video_id)
+    captions = str(download_caption(uid))
     if OPEN_ON_DOWNLOAD:
         os.system("open "+filepath)
     return {"UUID": uid, "Likes": video_object.likes, "Dislikes": video_object.dislikes,
@@ -414,6 +418,7 @@ def isMoving(path):
     """
     if not os.path.exists(path):
         print_and_log("isMoving got passed invalid path: " + path, error=True)
+        pdb.set_trace()
         return
     return MotionDetectorInstantaneous(path)()
 
@@ -474,15 +479,18 @@ def categorize_video(args, video_id):
     print_and_log("Categorizing "+video_id)
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
-    if "toCheck" not in row["File Location"].tolist()[0]:
+    if "toCheck" not in row["File Location"].tolist()[0] and "toConvert" not in row["File Location"].tolist()[0]:
         print_and_log("Already checked..."+video_id)
-        return
+        return row.to_dict(orient='records')[0]
     if "" == row["File Location"].tolist()[0]:
         print_and_log("Video not where expected..."+video_id, error=True)
         return
-    if "webm" in row["Format"]:
-        print_and_log("WEBM FORMAT. BAD.", error=True)
-        return
+    if "webm" in row["File Location"].tolist()[0]:
+        if args.convert:
+            convertVideo(row["File Location"].tolist()[0])
+        else:
+            print_and_log("Convert argument not selected. Will not convert this video: " + str(video_id))
+        return row.to_dict(orient='records')[0]
     fileName = video_id+"."+row["Format"].tolist()[0]
     path = "out/toCheck/"+fileName
     doesHaveMovement = isMoving(path)
@@ -619,25 +627,26 @@ def categorize_video_wrapper(args, video_id):
     try:
         return categorize_video(args, video_id)
     except Exception, e:
-        print_and_log("Error in categorization: " + str(e), error=True)
+        print_and_log("Error in categorization: " + str(e)+"\n"+traceback.format_exc(), error=True)
 
-def download_video_wrapper(args, video_id):
+def download_video_wrapper(video_id):
     try:
-        return download_video(args, video_id)
+        return download_video(video_id)
     except Exception, e:
-        print_and_log("Error in downloading video: " + str(e), error=True)
+        print_and_log("Error in downloading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
 
 def uploadToS3_wrapper(args, video_id):
     try:
         return uploadToS3(args, video_id)
     except Exception, e:
-        print_and_log("Error in uploading video: " + str(e), error=True)
+        pdb.set_trace()
+        print_and_log("Error in uploading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
 
 def convert_wrapper(id_):
     try:
-        return convert(id_)
+        return convertVideo(id_)
     except Exception, e:
-        print_and_log("Error in converting video: " + str(e), error=True)
+        print_and_log("Error in converting video: " + str(e)+"\n"+traceback.format_exc(), error=True)
 
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
@@ -692,12 +701,14 @@ def main():
             for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
-                create_or_update_entry(download_video_wrapper(args, _id))
-                create_or_update_entry(categorize_video_wrapper(args, _id))
-                create_or_update_entry(uploadToS3_wrapper(args, information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
+                create_or_update_entry(download_video_wrapper(_id, ))
+                if args.categorize:
+                    create_or_update_entry(categorize_video_wrapper(args, _id))
+                if args.upload and args.categorize:
+                    create_or_update_entry(uploadToS3_wrapper(args, information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
                 # if args.query != None:
                 #     pool.apply_async(download_video_wrapper, args=(
-                #         args, _id), callback=create_or_update_entry)
+                #         _id, ), callback=create_or_update_entry)
                 # if args.process:
                 #     pool.apply_async(categorize_video_wrapper, args=(
                 #         args, _id), callback=create_or_update_entry)
