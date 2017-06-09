@@ -735,6 +735,7 @@ def main():
                 create_or_update_entry(download_video_wrapper(_id))
                 if args.categorize:
                     create_or_update_entry(categorize_video_wrapper(args, _id))
+                pdb.set_trace()
                 if args.upload and args.categorize:
                     create_or_update_entry(uploadToS3_wrapper(args, _id))
                 # pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)

@@ -57,7 +57,7 @@ class MotionDetectorInstantaneous():
         '''
         started = time.time()
         counter = 0
-        thresh = 10
+        thresh = 7
         skipFrames = int(self.capture.get(cv.CV_CAP_PROP_FRAME_COUNT)/self.numFrameCheck)
         for i in tqdm(range(self.numFrameCheck)):
             print(counter)
