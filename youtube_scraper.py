@@ -531,7 +531,9 @@ def categorize_video(args, video_id):
     doesHaveFaces = False
     newPath = "out/Trash/"+fileName
     if doesHaveMovement:
+        print_and_log("Checking faces in " + video_id + "...")
         doesHaveFaces = hasFaces(path)
+        print_and_log(video_id + " Faces? " + str(doesHaveFaces))
     print("Face, "+str(doesHaveFaces)+" | Speech, "+str(doesHaveConversation))
     if doesHaveConversation and doesHaveFaces:
         newPath = "out/Multimodal/"+fileName
@@ -683,6 +685,7 @@ def convert_wrapper(id_):
 
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
+    ######################### Initialize ####################################
     args = parse_args()
     createOutputDirs()
     NUM_VIDS = int(args.num_vids)
@@ -714,6 +717,8 @@ def main():
     createOutputDirs()
     print_and_log("Created output directories if not already there")
 
+
+    ################################ Run ################################
     if args.clean:
         clean_downloads()
     pool = Pool(processes=int(args.num_threads))
@@ -734,6 +739,7 @@ def main():
                 create_or_update_entry(download_video_wrapper(_id))
                 if args.categorize:
                     create_or_update_entry(categorize_video_wrapper(args, _id))
+                pdb.set_trace()
                 if args.upload and args.categorize:
                     create_or_update_entry(uploadToS3_wrapper(args, _id))
                 # pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
