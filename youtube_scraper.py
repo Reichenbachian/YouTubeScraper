@@ -53,7 +53,7 @@ YOUTUBE_MAX_SEARCH_REASULTS = 50
 BACKUP_EVERY_N_VIDEOS = 5  # Backup to the CSV every this number of videos
 FACE_DETECTION_MODEL = "./zf4_tiny_3900000.pb"  # Face tracking model
 NUM_VIDS = 10  # Number of videos that should be downloaded on default
-SPEECH_TRHESHHOLD = .8  # percentage of video that contains speech
+SPEECH_TRHESHHOLD = .5  # percentage of video that contains speech
 # The tolerance of the speech model. Options are 1, 2, or 3.
 CONVERSATION_AGGRESSIVENESS = 2
 CSV_PATH = None  # items.csv should be in out/
