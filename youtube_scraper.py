@@ -151,16 +151,19 @@ def recover_or_get_youtube_id_dictionary(args):
             information_csv = pd.read_csv(CSV_PATH)
             # convertDataTypes()
         for key in QUERIES:
-            if len(information_csv[(information_csv['Downloaded'] != True) &\
-                        (information_csv['Query'].str.contains(key))]["Query"].tolist()) > NUM_VIDS\
-                        and not args.rebuild:
-                logging.info("Found query:" + key +
-                             " in cached search results, using cached search")
-            else:
-                if args.query != None:
-                    logging.info("Didn't find query:" + key +
-                                 " in cached search results, scraping now...")
-                    scrape_ids(args)
+            try:
+                if len(information_csv[(information_csv['Downloaded'] != True) &\
+                            (information_csv['Query'].str.contains(key))]["Query"].tolist()) > NUM_VIDS\
+                            and not args.rebuild:
+                    logging.info("Found query:" + key +
+                                 " in cached search results, using cached search")
+                else:
+                    if args.query != None:
+                        logging.info("Didn't find query:" + key +
+                                     " in cached search results, scraping now...")
+                        scrape_ids(args)
+            except:
+                pdb.set_trace()
 
 
 def convert_caption_to_str(trackList):
