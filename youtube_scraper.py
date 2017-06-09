@@ -473,6 +473,11 @@ def uploadToS3(args, video_id):
     infoDict["Uploaded"] = True
     return infoDict
 
+def findFile(fileName):
+    for root, subdirs, files in os.walk("out/"):
+        for file in files:
+            if fileName == file:
+                return str(root+"/"+fileName)
 
 def categorize_video(args, video_id):
     """
@@ -481,7 +486,13 @@ def categorize_video(args, video_id):
     print_and_log("Categorizing "+video_id)
     row = information_csv[information_csv["UUID"] == video_id]
     infoDict = {"UUID": video_id}
-    if "toCheck" not in row["File Location"].tolist()[0] and "toConvert" not in row["File Location"].tolist()[0]:
+    fileLoc = row["File Location"].tolist()[0]
+    type_ = row["Format"].tolist()[0]
+    if not os.path.exists(fileLoc):
+        fileLoc = findFile(video_id+"."+type_)
+        infoDict["File Location"] = fileLoc
+        create_or_update_entry(infoDict)
+    if "toCheck" not in fileLoc and "toConvert" not in fileLoc:
         print_and_log("Already checked..."+video_id)
         return row.to_dict(orient='records')[0]
     if "" == row["File Location"].tolist()[0]:
