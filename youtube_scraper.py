@@ -198,7 +198,7 @@ def download_caption(video_id):
     return {"UUID": video_id, "Captions": capStr}
 
 
-def create_or_update_entry(infoDict, shouldSave=True):
+def create_or_update_entry(infoDict, success=True, shouldSave=True):
     """
     Creates or updates the entry in information_csv, and, by proxy, the csv
     Also backs up every N videos to the CSV.
@@ -208,6 +208,8 @@ def create_or_update_entry(infoDict, shouldSave=True):
     Duration
     """
     global information_csv, backup_counter
+    if not sucess:
+        return
     if infoDict is None:
         print_and_log("Invalid entry blocked. Infodict is none. " + "\n", error=True)
         traceback.print_stack()
