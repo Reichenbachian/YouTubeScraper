@@ -340,12 +340,16 @@ def download_video(uid):
     captions = str(download_caption(uid))
     if OPEN_ON_DOWNLOAD:
         os.system("open "+filepath)
-    return {"UUID": uid, "Length(seconds)": video_object.length, "Keywords": str(video_object.keywords),
-            "Viewcount": video_object.viewcount, "Title": video_object.title, "Author": video_object.author,
-            "Bitrate": stream.rawbitrate, "Dimensions": stream.resolution, "Format": stream.extension,
-            "Size(bytes)": stream.get_filesize(), "Downloaded": True, "File Location": filepath,
-            "Duration": parser.unescape(video_object.duration).encode('ascii', 'ignore').decode('ascii'),
-            "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii'), "Captions": captions}
+    try:
+        infoDict = {"UUID": uid, "Length(seconds)": video_object.length, "Keywords": str(video_object.keywords),
+                "Viewcount": video_object.viewcount, "Title": video_object.title, "Author": video_object.author,
+                "Bitrate": stream.rawbitrate, "Dimensions": stream.resolution, "Format": stream.extension,
+                "Size(bytes)": stream.get_filesize(), "Downloaded": True, "File Location": filepath,
+                "Duration": parser.unescape(video_object.duration).encode('ascii', 'ignore').decode('ascii'),
+                "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii'), "Captions": captions}
+    except KeyError, e:
+        print_and_log("Pafy backend failure on "+video_id)
+    return {}
 
 
 def uid_to_url(uid):
@@ -707,8 +711,7 @@ def main():
         sess = tf.Session(graph=graph)
         print_and_log("Processing downloaded Videos first...")
         for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(args, _id))
-            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+            pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
 
     counter = 0
     if args.query != None:
@@ -717,20 +720,11 @@ def main():
             for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
-                create_or_update_entry(download_video_wrapper(_id, ))
+                pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
                 if args.categorize:
-                    create_or_update_entry(categorize_video_wrapper(args, _id))
+                    pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
                 if args.upload and args.categorize:
-                    create_or_update_entry(uploadToS3_wrapper(args, _id))
-                # if args.query != None:
-                #     pool.apply_async(download_video_wrapper, args=(
-                #         _id, ), callback=create_or_update_entry)
-                # if args.process:
-                #     pool.apply_async(categorize_video_wrapper, args=(
-                #         args, _id), callback=create_or_update_entry)
-                # if args.upload:
-                #     pool.apply_async(uploadToS3_wrapper, args=(args, 
-                #         information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
+                    pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
                 counter += 1
     if args.upload:
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == True) &
@@ -738,8 +732,7 @@ def main():
                                           (information_csv['File Location'].str.contains("Multimodal") |
                                            information_csv['File Location'].str.contains("Conversation") |
                                            information_csv['File Location'].str.contains("Faces")))]["UUID"].tolist()):
-            # pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
-            create_or_update_entry(uploadToS3_wrapper(args, _id))
+            pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
     saveCSV(CSV_PATH)
     pool.close()
     pool.join()
