@@ -64,7 +64,7 @@ parser = HTMLParser.HTMLParser()
 
 # Create dataframe
 columns = ["Url", "UUID", "Date Updated", "Format", "File Location", "Dimensions", "Bitrate", "Downloaded",
-           "Query", "Likes", "Dislikes", "Rating", "Title", "Description", "Duration",
+           "Query", "Rating", "Title", "Description", "Duration",
            "Captions", "Size(bytes)", "Keywords", "Length(seconds)", "Viewcount", "Faces", "Conversation", "Author", "Uploaded"]
 
 columnTypes = [str, str, str, str, str, str, float, bool, str, float, float,
@@ -204,7 +204,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
     Creates or updates the entry in information_csv, and, by proxy, the csv
     Also backs up every N videos to the CSV.
 
-    infoDict Complete keys: UUID, Likes, Dislikes, Length, Keywords,
+    infoDict Complete keys: UUID, Length, Keywords,
     ViewCount, Title, Author, Bitrate, Dimensions, Format, Description
     Duration
     """
@@ -338,8 +338,7 @@ def download_video(uid):
     captions = str(download_caption(uid))
     if OPEN_ON_DOWNLOAD:
         os.system("open "+filepath)
-    return {"UUID": uid, "Likes": video_object.likes, "Dislikes": video_object.dislikes,
-            "Length(seconds)": video_object.length, "Keywords": str(video_object.keywords),
+    return {"UUID": uid, "Length(seconds)": video_object.length, "Keywords": str(video_object.keywords),
             "Viewcount": video_object.viewcount, "Title": video_object.title, "Author": video_object.author,
             "Bitrate": stream.rawbitrate, "Dimensions": stream.resolution, "Format": stream.extension,
             "Size(bytes)": stream.get_filesize(), "Downloaded": True, "File Location": filepath,
