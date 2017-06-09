@@ -476,6 +476,13 @@ def uploadToS3(args, video_id):
     if information_csv["File Location"].tolist()[0] == "":
         return infoDict
     path = row["File Location"].tolist()[0]
+    if not os.path.exists(path):
+        fileLoc = findFile(video_id+"."+type_)
+        infoDict["File Location"] = fileLoc
+        create_or_update_entry(infoDict)
+    if fileLoc == None:
+        infoDict["Downloaded"] = False
+        return infoDict
     # get second to last occurence
     pdb.set_trace()
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
