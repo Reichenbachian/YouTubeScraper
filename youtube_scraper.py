@@ -339,6 +339,7 @@ def download_video(uid):
     filename = stream.download(filepath=filepath)
     logging.info("Finished downloading video at url: %s" % (video_url))
     captions = str(download_caption(uid))
+    infoDict = {}
     if OPEN_ON_DOWNLOAD:
         os.system("open "+filepath)
     try:
@@ -350,7 +351,7 @@ def download_video(uid):
                 "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii'), "Captions": captions}
     except KeyError, e:
         print_and_log("Pafy backend failure on "+video_id)
-    return {}
+    return infoDict
 
 
 def uid_to_url(uid):
