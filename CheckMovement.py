@@ -27,16 +27,12 @@ class MotionDetectorInstantaneous():
             counter += 1
         return True
 
-    def __init__(self, fileName, threshold=1, showWindows=True, skipFrames=None):
+    def __init__(self, fileName, threshold=1, showWindows=True, numFrameCheck=50):
         self.file = fileName
         self.frame = None
         
         self.capture=cv2.VideoCapture(fileName)
-        if skipFrames == None:
-            skipFrames = int(self.capture.get(cv.CV_CAP_PROP_FRAME_COUNT)/50)
-        if skipFrames == 0:
-            skipFrames = 200
-        self.skipFrames = skipFrames
+        self.numFrameCheck = numFrameCheck
         ret = False
         self.getFrame()
         self.frame = self.conv(self.frame)
@@ -62,7 +58,7 @@ class MotionDetectorInstantaneous():
         started = time.time()
         counter = 0
         thresh = 10
-        for i in tqdm(range(thresh)):
+        for i in tqdm(range(int(self.capture.get(cv.CV_CAP_PROP_FRAME_COUNT)/self.numFrameCheck))):
             print(counter)
             ret, curframe = self.capture.read()
             for i in range(self.skipFrames-1):
