@@ -674,29 +674,44 @@ def clean_downloads():
 
 def categorize_video_wrapper(args, video_id):
     try:
-        return categorize_video(args, video_id)
+        return (categorize_video(args, video_id), True)
     except Exception, e:
         print_and_log("Error in categorization: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        return (None, False)
 
 def download_video_wrapper(video_id):
     try:
-        return download_video(video_id)
+        return (download_video(video_id), True)
     except Exception, e:
         print_and_log("Error in downloading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        return (None, False)
 
 def uploadToS3_wrapper(args, video_id):
     try:
-        pdb.set_trace()
-        return uploadToS3(args, video_id)
+        return (uploadToS3(args, video_id), True)
     except Exception, e:
-        pdb.set_trace()
         print_and_log("Error in uploading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        return (None, False)
 
 def convert_wrapper(id_):
     try:
-        return convertVideo(id_)
+        return (convertVideo(id_), True)
     except Exception, e:
         print_and_log("Error in converting video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        return (None, False)
+
+def complete_wrapper(args, _id):
+    infoDict, success = download_video_wrapper(_id)
+    create_or_update_entry(infoDict)
+    if success:
+        if args.convert:
+            infoDict, success = convert_wrapper(_id)
+        if success and args.categorize:
+            infoDict, success = categorize_video_wrapper(args, _id)
+            if success and args.upload:
+                infoDict, success = uploadToS3_wrapper(args, _id)
+                if success:
+                    return infoDict
 
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
@@ -751,11 +766,7 @@ def main():
             for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
-                create_or_update_entry(download_video_wrapper(_id))
-                if args.categorize:
-                    create_or_update_entry(categorize_video_wrapper(args, _id))
-                if args.upload and args.categorize:
-                    create_or_update_entry(uploadToS3_wrapper(args, _id))
+                complete_wrapper(args, _id)
                 # pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
                 # if args.categorize:
                 #     pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
