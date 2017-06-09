@@ -476,10 +476,12 @@ def uploadToS3(args, video_id):
     if information_csv["File Location"].tolist()[0] == "":
         return infoDict
     path = row["File Location"].tolist()[0]
+    pdb.set_trace()
     if not os.path.exists(path):
         fileLoc = findFile(video_id+"."+type_)
         infoDict["File Location"] = fileLoc
         create_or_update_entry(infoDict)
+    pdb.set_trace()
     if fileLoc == None:
         infoDict["Downloaded"] = False
         return infoDict
