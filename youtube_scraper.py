@@ -82,7 +82,7 @@ def parse_args():
     parser.add_argument("-t, --num_threads", action="store",
                         dest="num_threads", help="Number of concurrent Threads", default=3)
     parser.add_argument("-n, --num_videos", action="store", dest="num_vids",
-                        help="Number of videos that will be downloaded", default=10)
+                        help="Number of videos for each keyword that will be downloaded", default=10)
     parser.add_argument("-v, --verbose", help="Verbose output",
                         dest="verbose", action="store_true", default=False)
     parser.add_argument("-r, --rebuild", help="Rebuild the search cache?",
@@ -205,6 +205,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
     if infoDict is None or len(infoDict["UUID"]) != 11: # all infoDicts need a UUID entry for row identification
                                     # and all UUIDs are 11 characters long.
         print_and_log("Invalid entry blocked", error=True)
+        pdb.set_trace()
         return
     try: # make sure whole process doesn't stop based on one error.
         if backup_counter >= BACKUP_EVERY_N_VIDEOS and shouldSave:
@@ -266,7 +267,7 @@ def create_or_update_entry(infoDict, shouldSave=True):
         pdb.set_trace()
     information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
 
-
+@retry(wait_fixed=600000, stop_max_attempt_number=5)
 def scrape_ids(args):
     """
     Scrapes youtube and creates or updates entries.
@@ -275,35 +276,42 @@ def scrape_ids(args):
                         YOUTUBE_API_VERSION, developerKey=DEVELOPER_KEY)
     # Call the search.list method to retrieve results matching the specified
     # query term.
-    for length in ["short", "medium", "long"]:
-        for key in QUERIES:
-            search = youtube_api.search().list(
-                q=key,
-                type="video",
-                part="id",
-                videoDuration=length,
-                maxResults=YOUTUBE_MAX_SEARCH_REASULTS
-            )
-            allResultsRead = False
-            while not allResultsRead:
-                searchResponse = search.execute()
-                for search_result in searchResponse.get("items", []):
-                    try:
-                        vidID = create_or_update_entry(
-                            {"UUID": str(search_result["id"]["videoId"]), "Query": str(key)}, shouldSave=False)
-                    except Exception, e:
-                        print("Error on item: ", str(e))
+    counter = 0
+    for key in QUERIES:
+        print("AAAAAAAAA", key)
+        search = youtube_api.search().list(
+            q=key,
+            type="video",
+            part="id",
+            videoDuration="medium",
+            maxResults=YOUTUBE_MAX_SEARCH_REASULTS
+        )
+        allResultsRead = False
+        while not allResultsRead:
+            searchResponse = search.execute()
+            for search_result in searchResponse.get("items", []):
                 try:
-                    search = youtube_api.search().list(
-                        q=key,
-                        type="video",
-                        part="id",
-                        videoDuration="medium",
-                        maxResults=YOUTUBE_MAX_SEARCH_REASULTS,
-                        pageToken=searchResponse["nextPageToken"]
-                    )
-                except KeyError:
+                    vidID = create_or_update_entry(
+                        {"UUID": str(search_result["id"]["videoId"]), "Query": str(key)}, shouldSave=False)
+                    print(counter)
+                    counter += 1
+                except Exception, e:
+                    print("Error on item: ", str(e))
+                if counter >= NUM_VIDS:
+                    counter = 0
                     allResultsRead = True
+                    break
+            try:
+                search = youtube_api.search().list(
+                    q=key,
+                    type="video",
+                    part="id",
+                    videoDuration="medium",
+                    maxResults=YOUTUBE_MAX_SEARCH_REASULTS,
+                    pageToken=searchResponse["nextPageToken"]
+                )
+            except KeyError:
+                allResultsRead = True
 
 
 @retry(wait_fixed=600000, stop_max_attempt_number=5)
@@ -322,6 +330,7 @@ def download_video(uid):
     # starts download in the same directory of the script
     filename = stream.download(filepath=filepath)
     logging.info("Finished downloading video at url: %s" % (video_url))
+    captions = download_caption(video_id)
     if OPEN_ON_DOWNLOAD:
         os.system("open "+filepath)
     return {"UUID": uid, "Likes": video_object.likes, "Dislikes": video_object.dislikes,
@@ -330,7 +339,7 @@ def download_video(uid):
             "Bitrate": stream.rawbitrate, "Dimensions": stream.resolution, "Format": stream.extension,
             "Size(bytes)": stream.get_filesize(), "Downloaded": True, "File Location": filepath,
             "Duration": parser.unescape(video_object.duration).encode('ascii', 'ignore').decode('ascii'),
-            "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii')}
+            "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii'), "Captions": captions}
 
 
 def uid_to_url(uid):
@@ -496,21 +505,7 @@ def categorize_video(args, video_id):
     return infoDict
 
 
-def download_video(args, video_id):
-    """
-    Download a video and return the infoDict
-    """
-    counter = 0
-    infoDict = {"UUID": video_id}
-    if args.query != None:
-        download_video(video_id)
-        infoDict["Downloaded"] = True
-        print_and_log("Downloaded video of uid: "+video_id)
-    # Download Captions
-    infoDict = information_csv[information_csv["UUID"] == video_id]
-    infoDict["Captions"] = download_caption(video_id)
-    print_and_log("Downloaded caption for "+video_id)
-    return infoDict
+
 
 def createOutputDirs():
     """
@@ -628,7 +623,7 @@ def categorize_video_wrapper(args, video_id):
 
 def download_video_wrapper(args, video_id):
     try:
-        return categorize_video(args, video_id)
+        return download_video(args, video_id)
     except Exception, e:
         print_and_log("Error in downloading video: " + str(e), error=True)
 
@@ -653,8 +648,7 @@ def main():
 
     OPEN_ON_DOWNLOAD = args.openOnDownload
     if args.query != None:
-        QUERIES = args.query if ',' not in args.query else args.query.split(
-            ",")
+        QUERIES = [args.query] if ',' not in args.query else args.query.split(",")
         QUERIES = [x.strip() for x in QUERIES]
     start_logger(args)
     recover_or_get_youtube_id_dictionary(args)
@@ -698,18 +692,18 @@ def main():
             for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
-                create_or_update_entry(download_video_wrapper(_id))
+                create_or_update_entry(download_video_wrapper(args, _id))
                 create_or_update_entry(categorize_video_wrapper(args, _id))
-                create_or_update_entry(uploadToS3_wrapper(information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
+                create_or_update_entry(uploadToS3_wrapper(args, information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
                 # if args.query != None:
                 #     pool.apply_async(download_video_wrapper, args=(
-                #         _id, ), callback=create_or_update_entry)
+                #         args, _id), callback=create_or_update_entry)
                 # if args.process:
                 #     pool.apply_async(categorize_video_wrapper, args=(
                 #         args, _id), callback=create_or_update_entry)
                 # if args.upload:
-                #     pool.apply_async(uploadToS3_wrapper, args=(
-                #         information_csv["File Location"].tolist()[0], ), callback=create_or_update_entry)
+                #     pool.apply_async(uploadToS3_wrapper, args=(args, 
+                #         information_csv["File Location"].tolist()[0]), callback=create_or_update_entry)
                 counter += 1
     if args.upload:
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == True) &
