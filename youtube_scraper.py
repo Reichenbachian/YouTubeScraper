@@ -433,7 +433,7 @@ def hasConversation(id_):
     vc = VadCollector.VadCollector(
         path, CONVERSATION_AGGRESSIVENESS, framesize, padding_width, thresh=0.9)
     percentage = vc.get_percentage()
-    print_and_log(id_ + " is " + str(percentage) + "talk.")
+    print_and_log(id_ + " is " + str(percentage) + " talk.")
     os.remove(path)
     return percentage > SPEECH_TRHESHHOLD
 
@@ -513,7 +513,7 @@ def categorize_video(args, video_id):
     newPath = "out/Trash/"+fileName
     if doesHaveMovement:
         doesHaveFaces = hasFaces(path)
-    print("Face, "+str(doesHaveFaces)+"| Speech, "+str(doesHaveConversation))
+    print("Face, "+str(doesHaveFaces)+" | Speech, "+str(doesHaveConversation))
     if doesHaveConversation and doesHaveFaces:
         newPath = "out/Multimodal/"+fileName
     elif doesHaveConversation:
@@ -650,7 +650,6 @@ def download_video_wrapper(video_id):
 
 def uploadToS3_wrapper(args, video_id):
     try:
-        pdb.set_trace()
         return uploadToS3(args, video_id)
     except Exception, e:
         pdb.set_trace()
