@@ -716,15 +716,6 @@ def main():
                                          (information_csv["Downloaded"] == True))]["UUID"].tolist()):
             convert_wrapper(_id)
 
-    if args.categorize:
-        print_and_log("Loading Face Tracker...")
-        graph = load_model_pb(FACE_DETECTION_MODEL)
-        sess = tf.Session(graph=graph)
-        print_and_log("Processing downloaded Videos first...")
-        for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(args, _id))
-            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
-
     counter = 0
     if args.query != None:
         print_and_log("Switching to download new videos...")
@@ -744,6 +735,17 @@ def main():
                 # if args.upload and args.categorize:
                 #     pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
                 counter += 1
+
+    if args.categorize:
+        print_and_log("Loading Face Tracker...")
+        graph = load_model_pb(FACE_DETECTION_MODEL)
+        sess = tf.Session(graph=graph)
+        print_and_log("Processing downloaded Videos first...")
+        for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
+            create_or_update_entry(categorize_video_wrapper(args, _id))
+            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+
+
     if args.upload:
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == True) &
                                           ((information_csv["Uploaded"] == False) | (information_csv["Uploaded"] == "")) &
