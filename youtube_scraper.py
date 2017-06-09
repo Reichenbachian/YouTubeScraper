@@ -674,6 +674,7 @@ def download_video_wrapper(video_id):
 
 def uploadToS3_wrapper(args, video_id):
     try:
+        pdb.set_trace()
         return uploadToS3(args, video_id)
     except Exception, e:
         pdb.set_trace()
