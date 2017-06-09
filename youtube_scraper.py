@@ -67,8 +67,7 @@ columns = ["Url", "UUID", "Date Updated", "Format", "File Location", "Dimensions
            "Query", "Rating", "Title", "Description", "Duration",
            "Captions", "Size(bytes)", "Keywords", "Length(seconds)", "Viewcount", "Faces", "Conversation", "Author", "Uploaded"]
 
-columnTypes = [str, str, str, str, str, str, float, bool, str, float, float,
-               str, str, str, str, str, float, str, float, float, bool, bool, bool]
+columnTypes = [str, str, str, str, str, str, float, bool, str, float, str, str, float, str, float, str, float, float, bool, bool, str, bool]
 information_csv = pd.DataFrame(columns=columns)
 backup_counter = 0
 
