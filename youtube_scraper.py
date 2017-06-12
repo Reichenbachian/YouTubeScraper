@@ -460,12 +460,23 @@ def hasFaces(path):
     return checkForFace(path, graph, sess)
 
 
-def moveFromTo(from_, to_):
+def move_from_to(from_, to_):
     """
-    Moves a file from path to another path
+    Moves a file from path to another path and
+    checks in s3 whether it should be moved there as well.
     """
+    if "out/" in from_ and "out/" in to_:
+        fromKey = from_.split("out/")[1]
+        toKey = to_.split("out/")[1]
+        if check_if_exists_in_s3(key):
+            bucket.copy({"Bucket": "youtube-video-data", "Key":toKey}, 'otherkey')
     os.rename(from_, to_)
 
+
+def check_if_exists_in_s3(key):
+    global bucket
+    objs = list(bucket.objects.filter(Prefix=key))
+    return len(objs) > 0 and objs[0].key == key
 
 def uploadToS3(args, video_id):
     global bucket
@@ -488,8 +499,11 @@ def uploadToS3(args, video_id):
         return infoDict
     # get second to last occurence
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
-    print_and_log("Uploading " + path + " to " + s3path)
-    bucket.upload_file(path, s3path)
+    if not check_if_exists_in_s3(s3path):
+        print_and_log("Uploading " + path + " to " + s3path)
+        bucket.upload_file(path, s3path)
+    else:
+        print_and_log("Already uploaded " + s3path)
     infoDict["Uploaded"] = True
     return infoDict
 
@@ -551,7 +565,7 @@ def categorize_video(args, video_id):
         newPath = "out/Conversation/"+fileName
     elif doesHaveFaces:
         newPath = "out/Faces/"+fileName
-    moveFromTo(path, newPath)
+    move_from_to(path, newPath)
     infoDict["Faces"] = doesHaveFaces
     infoDict["Conversation"] = doesHaveConversation
     infoDict["File Location"] = newPath
@@ -660,7 +674,7 @@ def clean_downloads():
             if oldPath != newPath:
                 print_and_log(
                     "Moving "+row["File Location"].tolist()[0]+" to "+newPath)
-                moveFromTo(row["File Location"].tolist()[0], newPath)
+                move_from_to(row["File Location"].tolist()[0], newPath)
                 create_or_update_entry({"UUID": uid,"File Location": newPath}, shouldSave=False)
         else:
             create_or_update_entry({"UUID": _id, "Downloaded": False})
@@ -762,18 +776,12 @@ def main():
             for _id in information_csv[(information_csv["Query"] == q) & (information_csv["Downloaded"] == False)]["UUID"].tolist():
                 if counter >= NUM_VIDS:
                     break
-                complete_wrapper(args, _id)
-                # pool.apply_async(download_video_wrapper, args=(_id, ), callback=create_or_update_entry)
-                # if args.categorize:
-                #     pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
-                # if args.upload and args.categorize:
-                #     pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
+                pool.apply_async(complete_wrapper, args=(args, _id, ), callback=create_or_update_entry)
                 counter += 1
 
-    if args.categorize:
+    if args.categorize and args.query == None:
         for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
-            create_or_update_entry(*categorize_video_wrapper(args, _id))
-            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+            pool.apply_async(*categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
 
 
     if args.upload:
