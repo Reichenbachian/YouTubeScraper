@@ -118,7 +118,7 @@ def fileCallback(fileAndMoved):
 
 def wrapper(path):
     try:
-        # path = "/Users/magenta/Desktop/YouTubeScraper/"+path
+        path = os.path.abspath(path)
         print("Checking", path)
         detect = MotionDetectorInstantaneous(path)
         return detect()
