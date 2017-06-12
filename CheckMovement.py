@@ -5,6 +5,11 @@ import time
 import os
 from multiprocessing import Pool
 from tqdm import tqdm
+import sys
+import skvideo.io
+import traceback
+import pdb
+
 PATH = "out/toCheck/"
 
 class MotionDetectorInstantaneous():
@@ -30,26 +35,21 @@ class MotionDetectorInstantaneous():
     def __init__(self, fileName, threshold=1, showWindows=True, numFrameCheck=20):
         self.file = fileName
         self.frame = None
-        
-        self.capture=cv2.VideoCapture(fileName)
+        self.capture=skvideo.io.VideoCapture(self.file)
         self.numFrameCheck = numFrameCheck
         ret = False
         self.getFrame()
-        self.frame = self.conv(self.frame)
-
-        self.frame1gray = cv.CreateMat(self.frame.height, self.frame.width, cv.CV_8U) #Gray frame at t-1
-        cv.CvtColor(self.frame, self.frame1gray, cv.CV_RGB2GRAY)
-        
+        self.frame1gray = cv.CreateMat(self.frame.shape[0], self.frame.shape[1], cv.CV_8U) #Gray frame at t-1
+        self.frame = cv.fromarray(self.frame)
+        cv.CvtColor(self.frame, self.frame1gray, cv2.COLOR_BGR2GRAY)
         #Will hold the thresholded result
         self.res = cv.CreateMat(self.frame.height, self.frame.width, cv.CV_8U)
-        
         self.frame2gray = cv.CreateMat(self.frame.height, self.frame.width, cv.CV_8U) #Gray frame at t
         
         self.width = self.frame.width
         self.height = self.frame.height
         self.nb_pixels = self.width * self.height
         self.threshold = threshold
-
 
     def __call__(self):
         '''
@@ -58,7 +58,7 @@ class MotionDetectorInstantaneous():
         started = time.time()
         counter = 0
         thresh = 7
-        skipFrames = int(self.capture.get(cv.CV_CAP_PROP_FRAME_COUNT)/self.numFrameCheck)
+        skipFrames = int(cv2.VideoCapture(self.file).get(cv.CV_CAP_PROP_FRAME_COUNT)/self.numFrameCheck)
         for i in tqdm(range(self.numFrameCheck)):
             ret, curframe = self.capture.read()
             for i in range(skipFrames-1):
@@ -67,7 +67,6 @@ class MotionDetectorInstantaneous():
                 break
             curframe = self.conv(curframe)
             instant = time.time() #Get timestamp o the frame
-            
             self.processImage(curframe) #Process the image
             
             if self.somethingHasMoved():
@@ -117,17 +116,21 @@ def fileCallback(fileAndMoved):
         print(file, "to", "out/NoMovementOrNoFaces/"+file[file.rfind("/")+1:])
         os.rename(file, "out/NoMovementOrNoFaces/"+file[file.rfind("/")+1:])
 
-def wrapper(file):
+def wrapper(path):
     try:
-        print("Checking", file)
-        detect = MotionDetectorInstantaneous(PATH + file)
-        fileCallback(detect())
-        print("Checked", file)
+        path = "/Users/magenta/Desktop/YouTubeScraper/"+path
+        print("Checking", path)
+        detect = MotionDetectorInstantaneous(path)
+        return detect()
+        # fileCallback(detect())
+        print("Checked", path)
     except Exception, e:
-        print("ERROR ON THREAD! filename:", file, "error:", e)
+        print("ERROR ON THREAD IN ISMOVING! filename:", path, "error:", e)
+        traceback.format_exc()
+        return False
 
 if __name__=="__main__":
-    detect = MotionDetectorInstantaneous("/Users/localhost/Desktop/Projects/Working/Affectiva/visioneering-python/scripts/scrape_data/youtube_video/Moving.mp4")
+    detect = MotionDetectorInstantaneous("/Users/magenta/Desktop/YouTubeScraper/out/toCheck/3EjolpEEdcc.mp4")
     print(detect())
     # pool = Pool(processes=5)
     # results = []

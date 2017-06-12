@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # args = parse_args()
     graph = load_model_pb("./zf4_tiny_3900000.pb")
     sess = tf.Session(graph=graph)
-    print(checkForFace("notMoving.mp4", graph, sess))
+    print(checkForFace("/Users/magenta/Desktop/YouTubeScraper/out/Conversation/_7UzdV2u-kI.mp4", graph, sess))
     # pool = Pool(processes=int(5))
     # for file in [f for f in os.listdir(PATH) if os.path.isfile(os.path.join(PATH, f))]:
     #     pool.apply_async(checkForFace, args=(PATH+file,))
