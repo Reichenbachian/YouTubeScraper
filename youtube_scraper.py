@@ -827,8 +827,8 @@ def main():
 
     if args.categorize and args.query == None:
         for _id in tqdm(information_csv.loc[(information_csv["Downloaded"] == True) & (information_csv['File Location'].str.contains("toCheck"))]["UUID"].tolist()):
-            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
-            create_or_update_entry(categorize_video_wrapper(args, _id))
+            pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+            # create_or_update_entry(categorize_video_wrapper(args, _id))
 
 
     if args.upload:
