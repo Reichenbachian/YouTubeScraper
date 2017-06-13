@@ -114,6 +114,8 @@ def parse_args():
                         action="store_true", dest="clean", default=False)
     parser.add_argument("--upload", help="Uploads to S3",
                         action="store_true", dest="upload", default=False)
+    parser.add_argument("--download", help="Just downloads videos",
+                        action="store_true", dest="download", default=False)
 
     args = parser.parse_args()
     return args
@@ -416,7 +418,7 @@ def convertVideo(video_id):
         inputs={oldPath: "-y"},
         outputs={newPath: None}
     )
-    ff.run(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
     information_csv[information_csv["UUID"] == video_id]["Format"] = ".mp4"
     information_csv[information_csv["UUID"] == video_id]["File Location"] = newPath
 
@@ -438,7 +440,7 @@ def stripAudio(video_id):
             inputs={oldPath: None},
             outputs={newPath: "-y -codec:v copy -af pan=\"mono: c0=FL\" -ar 32000"}
         )
-        ff.run(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
     return newPath
 
 
@@ -835,6 +837,15 @@ def main():
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == True) &
                                           ((information_csv["Uploaded"] == False) | (information_csv["Uploaded"] == "")) &
                                           (information_csv['File Location'].str.contains("Multimodal") |
+                                           information_csv['File Location'].str.contains("Conversation") |
+                                           information_csv['File Location'].str.contains("Faces")))]["UUID"].tolist()):
+            # create_or_update_entry(uploadToS3_wrapper(args, _id))
+            pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
+
+    if args.download and args.query == None:
+        for _id in tqdm(information_csv[((information_csv["Downloaded"] == False) &
+                                          ((information_csv["Uploaded"] == False) | (information_csv["Uploaded"] == "")) &
+                                          not (information_csv['File Location'].str.contains("Multimodal") |
                                            information_csv['File Location'].str.contains("Conversation") |
                                            information_csv['File Location'].str.contains("Faces")))]["UUID"].tolist()):
             # create_or_update_entry(uploadToS3_wrapper(args, _id))
