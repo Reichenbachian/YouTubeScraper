@@ -845,7 +845,7 @@ def main():
     if args.download and args.query == None:
         for _id in tqdm(information_csv[((information_csv["Downloaded"] == False) &
                                           ((information_csv["Uploaded"] == False) | (information_csv["Uploaded"] == "")) &
-                                          not (information_csv['File Location'].str.contains("Multimodal") |
+                                           ~(information_csv['File Location'].str.contains("Multimodal") |
                                            information_csv['File Location'].str.contains("Conversation") |
                                            information_csv['File Location'].str.contains("Faces")))]["UUID"].tolist()):
             # create_or_update_entry(uploadToS3_wrapper(args, _id))
