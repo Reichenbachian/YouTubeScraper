@@ -1,0 +1,4 @@
+rm MovementDetect.o MovementDetect.py MovementDetect.pyc MovementDetect.so MovementDetect_wrap.cxx
+g++ -c MovementDetect.cpp $(pkg-config --libs opencv) -o MovementDetect.o
+swig -I/Users/localhost/Desktop/Projects/Working/Affectiva/visioneering-python/scripts/scrape_data/youtube_video/opencv-swig/lib/ -I/usr/local/Cellar/opencv/HEAD-01e34b6/include -python -c++ MovementDetect.i
+g++ -shared -fpic MovementDetect_wrap.cxx MovementDetect.o -I/Users/localhost/Desktop/Projects/Working/Affectiva/affEnv/include/python2.7 -L/Users/localhost/Desktop/Projects/Working/Affectiva/affEnv/lib/python2.7 -L/usr/local/Cellar/opencv/HEAD-01e34b6/lib -lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_gpu -lopencv_highgui -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_nonfree -lopencv_objdetect -lopencv_ocl -lopencv_photo -lopencv_stitching -lopencv_superres -lopencv_ts -lopencv_video -lopencv_videostab -lpython2.7 -o _MovementDetect.so
