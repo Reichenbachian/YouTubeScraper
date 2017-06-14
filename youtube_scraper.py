@@ -883,6 +883,7 @@ def main():
     if args.categorize:
         print_and_log("Switching to Categorize...")
         for _id in tqdm(information_csv.loc[(~isEmpty("File Path")) & (information_csv['File Path'].str.contains("toCheck"))]["UUID"].tolist()):
+            # create_or_update_entry(categorize_video_wrapper(args, _id))
             pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
 
 
