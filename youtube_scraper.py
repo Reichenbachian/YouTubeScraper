@@ -18,6 +18,7 @@ import csv
 import cv2
 import cv
 import httplib2
+import shutil
 import sys
 from youtube2srt import cli
 import pandas as pd
@@ -122,13 +123,13 @@ def saveCSVToBoto3():
         s3 = boto3.resource('s3')
         client = boto3.client('s3')
         for item in client.list_objects(Bucket=DATA_BUCKET_NAME)["Contents"]:
-            if '.csv' in item["Key"]:
+            if '.csv' in item["Key"] and "master" not in item["Key"]:
                 name = item["Key"]
                 name = name[name.rfind('/')+1:]
                 csvs.append(name)
                 s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
         master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
-        master_df.to_csv("out/tmp/master.csv")
+        master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
 
 def saveCSV(path):
@@ -424,8 +425,6 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
     Duration
     """
     global information_csv, backup_counter
-    if not success:
-        return
     if infoDict is None:
         print_and_log("Invalid entry blocked. Infodict is none. " + "\n", error=True)
         traceback.print_stack()
@@ -835,6 +834,7 @@ def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
     ######################### Initialize #########################
     args = parse_args()
+    shutil.rmtree("out/tmp/") # Remove temporary files
     #### Make remote connections and load models if necessary
     print_and_log("Connecting to s3...")
     s3 = boto3.resource('s3')
@@ -864,7 +864,6 @@ def main():
     print_and_log("Created output directories if not already there")
 
     ################################ Run ################################
-
     if args.clean:
         clean_downloads()
     pool = Pool(processes=int(args.num_threads))
