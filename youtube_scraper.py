@@ -478,7 +478,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
                 newRow, index=columns)
         elif len(row_in_csv) == 0:  # If it isn't already in CSV
             pdb.set_trace()
-            newRow = [url, uid, date]
+            newRow = [url, uid, date, infoDict["Query"] if "Query" in infoDict.keys() else ""]
             newRow += get_attribute(uid, columns_except_url_and_uid)
             pdb.set_trace()
             assert len(information_csv.keys()) == len(newRow)
