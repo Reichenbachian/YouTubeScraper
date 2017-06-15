@@ -514,7 +514,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             try:
                 uid = str(search_result["id"]["videoId"])
                 print_and_log("Adding " + uid + " to CSV. From query: " + str(query))
-                create_or_update_entry({"UUID": uid, "Query": str(query)}, shouldSave=False,)
+                create_or_update_entry({"UUID": uid, "Query": str(query)}, shouldSave=False)
                 if uid not in information_csv["UUID"]:
                     counter += 1
             except Exception, e:
@@ -882,10 +882,10 @@ def main():
     if args.clean:
         clean_downloads()
     pool = Pool(processes=int(args.num_threads))
-    pdb.set_trace()
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
+            pdb.set_trace()
             for _id in information_csv[(information_csv["Query"] == q) & (isEmpty("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
                 download_video(_id)
 
