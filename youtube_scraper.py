@@ -470,14 +470,10 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
             for column in columns:
                 added = False
                 for index, row in rows.iterrows():
-                    print(row + " " + column)
-                    try:
-                        if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
-                            newRow.append(row[column])
-                            added = True
-                            break
-                    except:
-                        pdb.set_trace()
+                    if row[column] == "" or pd.isnull(row[column]):
+                        newRow.append(row[column])
+                        added = True
+                        break
                 if not added:
                     newRow.append("")
             information_csv.drop(information_csv.index[list(rows.index.values)], inplace=True)
@@ -605,11 +601,11 @@ def convertVideo(video_id):
     """
     Converts a video from webm to mp4
     """
-    path = get_attribute(video_id, ["File Path"])
+    path = get_attribute(video_id, ["File Path"])[0]
     newPath = "out/toCheck/"+video_id+".mp4"
     ff = ffmpy.FFmpeg(
-        inputs={str(path): "-y"},
-        outputs={str(newPath): None}
+        inputs={path: "-y"},
+        outputs={newPath: None}
     )
     ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
     delFile(path)
