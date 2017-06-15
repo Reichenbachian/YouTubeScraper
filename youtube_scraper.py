@@ -130,7 +130,7 @@ def saveCSVToBoto3():
                 name = name[name.rfind('/')+1:]
                 csvs.append(name)
                 s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), how="outer", on=columns)
+                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), how="outer", right_on='UUID', on=columns)
         # master_df = pd.merge([pd.read_csv("out/tmp/"+name) for name in csvs], left_index=True)
         master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
@@ -818,28 +818,28 @@ def categorize_video_wrapper(args, video_id):
     try:
         return categorize_video(args, video_id)
     except Exception, e:
-        print_and_log("Error in categorization: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in categorization on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def download_video_wrapper(video_id):
     try:
         return download_video(video_id)
     except Exception, e:
-        print_and_log("Error in downloading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in downloading video on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def uploadToS3_wrapper(args, video_id):
     try:
         return uploadToS3(args, video_id)
     except Exception, e:
-        print_and_log("Error in uploading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in uploading video on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def convert_wrapper(id_):
     try:
         return convertVideo(id_)
     except Exception, e:
-        print_and_log("Error in converting video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in converting video: on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def main():
