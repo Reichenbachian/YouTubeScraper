@@ -674,7 +674,7 @@ def moveFromTo(from_, to_):
     """
     Moves a file from path to another path
     """
-    if not os.path.exists(from_) and path != "":
+    if not os.path.exists(from_) and from_ != "":
         print("Move got passed an invalid path: "+from_)
     os.rename(from_, to_)
 
