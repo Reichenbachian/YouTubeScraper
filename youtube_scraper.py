@@ -453,7 +453,6 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         date = time.strftime("%d/%m/%Y %H:%M:%S")
         columns_except_url_and_uid = columns[3:]
         row_in_csv = information_csv[information_csv["UUID"] == uid] # get row
-        pdb.set_trace()
         if len(row_in_csv) == 1:  # If it is already in the CSV
             try:
                 for column in infoDict.keys():
@@ -515,7 +514,6 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             try:
                 uid = str(search_result["id"]["videoId"])
                 print_and_log("Adding " + uid + " to CSV. From query: " + str(query))
-                pdb.set_trace()
                 create_or_update_entry({"UUID": uid, "Query": str(query)})
                 if uid not in information_csv["UUID"]:
                     counter += 1
