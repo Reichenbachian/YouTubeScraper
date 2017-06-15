@@ -190,6 +190,8 @@ def convertDataTypes():
             [column]].astype(columnTypes[i])
 
 def isEmpty(column):
+    if information_csv[column].dtype == bool:
+        return (information_csv[column].isnull())
     return (information_csv[column] == "") | (information_csv["File Path"].str.contains("nan"))
 
 def recover_or_get_youtube_id_dictionary(args):
@@ -430,16 +432,16 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                     retArr.append("")
             elif column == "Uploaded":
                 if HardReset:
-                    retArr.append(exists_in_boto3(infoDict["File Path"]))
+                    retArr.append(exists_in_boto3(infoDict["File Path"].replace("out/", "")))
                 else:
                     retArr.append("")
             else:
                 print_and_log("Invalid requested frame. Column: " + column + " ID: " + uuid, error=True)
                 traceback.print_stack()
                 retArr.append("")
-    if cap != None:
+    if cap is not None:
         cap.release()
-    return retArr
+    return tuple(retArr)
 
 def create_or_update_entry(infoDict, shouldSave=True, reset=False):
     """
@@ -944,6 +946,11 @@ def convert_wrapper(id_):
         print_and_log("Error in converting video: " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
+def pull_master_csv():
+    saveCSVToBoto3()
+    s3 = boto3.resource('s3')
+    client = boto3.client('s3')
+
 
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
@@ -998,10 +1005,8 @@ def main():
     if args.categorize:
         print_and_log("Switching to Categorize...")
         for _id in tqdm(information_csv.loc[(~isEmpty("File Path")) & (information_csv['File Path'].str.contains("toCheck"))]["UUID"].tolist()):
-            # create_or_update_entry(categorize_video_wrapper(args, _id))
-            pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
-
-
+            create_or_update_entry(categorize_video_wrapper(args, _id))
+            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
     if args.upload:
         print_and_log("Switching to Uploading...")
         for _id in tqdm(information_csv[((~isEmpty("File Path")) &

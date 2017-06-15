@@ -88,13 +88,12 @@ inline int detectMotion(const Mat & motion, Mat & result, Mat & result_cropped,
     return 0;
 }
 bool success = false;
-Mat getFrame(VideoCapture cap, int skipFrames) {
+Mat getFrame(VideoCapture cap) {
     Mat ret;
     int counter = 0;
     for (int i = 0; i < 100; i++){
         success = cap.read(ret);
-        if (success) counter += 1;
-        if (success and counter >= skipFrames) return ret;
+        if (success) break;
     }
     return ret;
 }
@@ -136,9 +135,9 @@ int checkFile (string fileName)
     // Take images and convert them to gray
     const int DELAY = 500; // in mseconds, take a picture every 1/2 second
     Mat result, result_cropped;
-    Mat prev_frame = result = getFrame(capture, 1);
-    Mat current_frame = getFrame(capture, 1);
-    Mat next_frame = getFrame(capture, 1);
+    Mat prev_frame = result = getFrame(capture);
+    Mat current_frame = getFrame(capture);
+    Mat next_frame = getFrame(capture);
     if (!success) return -1;
     cvtColor(current_frame, current_frame, CV_RGB2GRAY);
     cvtColor(prev_frame, prev_frame, CV_RGB2GRAY);
@@ -170,12 +169,15 @@ int checkFile (string fileName)
     int numToCheck = 100;
     int skipFrames = static_cast<int>(capture.get(CV_CAP_PROP_FRAME_COUNT)/numToCheck);
     int counter = 0;
+    int frame_index = 0;
     int countThresh = 10;
     for (int i = 0; i < numToCheck; i++){
+        capture.set(1,frame_index);
+        frame_index += skipFrames;
         // Take a new image
         prev_frame = current_frame;
         current_frame = next_frame;
-        next_frame = getFrame(capture, skipFrames);
+        next_frame = getFrame(capture);
         if(next_frame.empty()) break;
         result = next_frame;
         if (!success) break;
