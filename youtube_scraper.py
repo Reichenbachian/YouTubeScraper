@@ -121,7 +121,7 @@ def saveCSVToBoto3():
         Key='Workers/'+fileName
         )
     if MASTER_PROCESS:
-        print_and_log("Combining online CSVs...")
+        print_and_log("I AM MASTER -> Combining online CSVs...")
         csvs = []
         s3 = boto3.resource('s3')
         client = boto3.client('s3')
