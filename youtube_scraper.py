@@ -469,10 +469,13 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
             for column in columns:
                 added = False
                 for row in rows:
-                    if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
-                        newRow.append(row[column])
-                        added = True
-                        break
+                    try:
+                        if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
+                            newRow.append(row[column])
+                            added = True
+                            break
+                    except:
+                        pdb.set_trace()
                 if not added:
                     newRow.append("")
             information_csv.drop(information_csv.index[list(rows.index.values)], inplace=True)
