@@ -62,7 +62,7 @@ CSV_PATH = None  # worker_id.csv should be in out/
 QUERIES = []  # Queries given as command line arguments split up.
 OPEN_ON_DOWNLOAD = False # Should the program open the videos once downloaded?
 WORKER_UUID = open("Worker_Key.key").readlines()[0].strip()
-MASTER_PROCESS = open("Worker_Key.key").readlines()[1].strip() == True # Should this process take it upon itself to join cloud csv's
+MASTER_PROCESS = open("Worker_Key.key").readlines()[1].strip() == "True" # Should this process take it upon itself to join cloud csv's
 bucket, graph, sess = None, None, None  # Initializing variables globally
 parser = HTMLParser.HTMLParser()
 s3 = boto3.resource('s3')
