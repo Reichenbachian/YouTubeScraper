@@ -112,6 +112,8 @@ def saveCSVToBoto3():
     global bucket
     print_and_log("Syncing to s3...")
     fileName = WORKER_UUID+'.csv'
+    if bucket == None:
+        bucket = s3.Bucket(DATA_BUCKET_NAME)
     bucket.put_object(
         Bucket=DATA_BUCKET_NAME,
         Body=open("out/"+fileName, 'rb'),
