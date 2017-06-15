@@ -683,18 +683,9 @@ def uploadToS3(args, video_id):
     Upload to S3 and update information_csv
     """
     global information_csv
-    row = information_csv[information_csv["UUID"] == video_id]
-    infoDict = {"UUID": video_id}
-    if information_csv["File Path"].tolist()[0] == "":
-        return infoDict
-    path = row["File Path"].tolist()[0]
-    type_ = row["Format"].tolist()[0]
-    if path == None or not os.path.exists(path):
-        path = findFile(video_id+"."+type_)
-        infoDict["File Path"] = path
-        create_or_update_entry(infoDict)
-    if path == None:
-        infoDict["File Path"] = ""
+    path, type_ = get_attribute(video_id, ["File Path", "Format"])
+    infoDict = {"UUID": video_id, "File Path": path, "Format", type_}
+    if path == "":
         return infoDict
     # get second to last occurence
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
