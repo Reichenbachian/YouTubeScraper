@@ -43,7 +43,6 @@ from datetime import datetime
 # Please ensure that you have enabled the YouTube Data API for your project.
 # This OAuth 2.0 access scope allows for full read/write access to the
 # authenticated user's account.
-MASTER_PROCESS = True # Should this process take it upon itself to join cloud csv's
 YOUTUBE_READ_WRITE_SCOPE = "https://www.googleapis.com/auth/youtube"
 DEVELOPER_KEY = "AIzaSyBjhRlaxeYd0_b27J0JmosTuf1H5DsN3O4"
 YOUTUBE_READ_WRITE_SSL_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
@@ -63,6 +62,7 @@ CSV_PATH = None  # worker_id.csv should be in out/
 QUERIES = []  # Queries given as command line arguments split up.
 OPEN_ON_DOWNLOAD = False # Should the program open the videos once downloaded?
 WORKER_UUID = open("Worker_Key.key").readlines()[0].strip()
+MASTER_PROCESS = open("Worker_Key.key").readlines()[1].strip() == True # Should this process take it upon itself to join cloud csv's
 bucket, graph, sess = None, None, None  # Initializing variables globally
 parser = HTMLParser.HTMLParser()
 s3 = boto3.resource('s3')
