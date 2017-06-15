@@ -477,11 +477,15 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
             information_csv.loc[len(information_csv)] = pd.Series(
                 newRow, index=columns)
         elif len(row_in_csv) == 0:  # If it isn't already in CSV
+            pdb.set_trace()
             newRow = [url, uid, date]
             newRow += get_attribute(uid, columns_except_url_and_uid)
+            pdb.set_trace()
             assert len(information_csv.keys()) == len(newRow)
+            pdb.set_trace()
             information_csv.loc[len(information_csv)] = pd.Series(
                 newRow, index=columns)
+            pdb.set_trace()
         else:
             print_and_log("Error in updating an entry", error=True)
     except Exception, e:
@@ -885,7 +889,6 @@ def main():
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
-            pdb.set_trace()
             for _id in information_csv[(information_csv["Query"] == q) & (isEmpty("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
                 download_video(_id)
 
