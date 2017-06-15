@@ -16,7 +16,6 @@ from multiprocessing import Pool
 import logging
 import csv
 import cv2
-import cv
 import httplib2
 import shutil
 import sys
@@ -51,7 +50,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 DATA_BUCKET_NAME = "youtube-video-data"
 YOUTUBE_API_VERSION = "v3"
 YOUTUBE_MAX_SEARCH_REASULTS = 50
-SAVES_PER_SYNC = 5
+SAVES_PER_SYNC = 20
 BACKUP_EVERY_N_VIDEOS = 5  # Backup to the CSV every this number of videos
 FACE_DETECTION_MODEL = "./zf4_tiny_3900000.pb"  # Face tracking model
 NUM_VIDS = 10  # Number of videos that should be downloaded on default
@@ -336,7 +335,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     if cap == None:
                         cap = cv2.VideoCapture(path)
-                    retArr.append(cap.get(cv.CV_CAP_PROP_FRAME_COUNT)/cap.get(cv.CV_CAP_PROP_FPS))
+                    retArr.append(cap.get(cv2.CAP_PROP_FRAMES)/cap.get(cv2.CAP_PROP_FPS))
                 elif "Duration" in infoDict.keys():
                     retArr.append(infoDict["Duration"])
                 else:
