@@ -38,19 +38,21 @@ class MotionDetectorInstantaneous():
         self.capture=skvideo.io.VideoCapture(self.file)
         self.numFrameCheck = numFrameCheck
         ret = False
+        print("A")
         self.getFrame()
-        self.frame1gray = cv.CreateMat(self.frame.shape[0], self.frame.shape[1], cv.CV_8U) #Gray frame at t-1
-        self.frame = cv.fromarray(self.frame)
-        cv.CvtColor(self.frame, self.frame1gray, cv2.COLOR_BGR2GRAY)
-        #Will hold the thresholded result
+        print("B")
+        self.frame = self.conv(self.frame)
         self.res = cv.CreateMat(self.frame.height, self.frame.width, cv.CV_8U)
         self.frame2gray = cv.CreateMat(self.frame.height, self.frame.width, cv.CV_8U) #Gray frame at t
-        
         self.width = self.frame.width
         self.height = self.frame.height
         self.nb_pixels = self.width * self.height
         self.threshold = threshold
 
+        self.frame = self.conv(self.frame)
+        self.processImage(self.frame) #Process the image
+        print("D")
+        #Will hold the thresholded result
     def __call__(self):
         '''
         Returns true if motion is detected
@@ -68,7 +70,6 @@ class MotionDetectorInstantaneous():
             curframe = self.conv(curframe)
             instant = time.time() #Get timestamp o the frame
             self.processImage(curframe) #Process the image
-            
             if self.somethingHasMoved():
                 counter += 1
             if counter >= thresh:
