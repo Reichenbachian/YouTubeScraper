@@ -124,13 +124,15 @@ def saveCSVToBoto3():
         print_and_log("I AM MASTER -> Combining online CSVs...")
         csvs = []
         client = boto3.client('s3')
+        master_df = pd.DataFrame()
         for item in client.list_objects(Bucket=DATA_BUCKET_NAME)["Contents"]:
             if '.csv' in item["Key"] and "master" not in item["Key"]:
                 name = item["Key"]
                 name = name[name.rfind('/')+1:]
                 csvs.append(name)
                 s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-        master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
+                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), left_on="UUID")
+        # master_df = pd.merge([pd.read_csv("out/tmp/"+name) for name in csvs], left_index=True)
         master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
     s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", CSV_PATH)
@@ -469,13 +471,10 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
             for column in columns:
                 added = False
                 for row in rows:
-                    try:
-                        if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
-                            newRow.append(row[column])
-                            added = True
-                            break
-                    except:
-                        pdb.set_trace()
+                    if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
+                        newRow.append(row[column])
+                        added = True
+                        break
                 if not added:
                     newRow.append("")
             information_csv.drop(information_csv.index[list(rows.index.values)], inplace=True)
@@ -841,12 +840,6 @@ def convert_wrapper(id_):
     except Exception, e:
         print_and_log("Error in converting video: " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
-
-def pull_master_csv():
-    saveCSVToBoto3()
-    s3 = boto3.resource('s3')
-    client = boto3.client('s3')
-
 
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
