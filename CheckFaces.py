@@ -8,7 +8,7 @@ Then you can run the script as follows :
 python cam_demo_pb.py --pb models/zf4_tiny_3900000.pb
 """
 import numpy as np
-import cv2, argparse, cv
+import cv2, argparse
 import tensorflow as tf
 import pandas as pd
 import os
@@ -56,7 +56,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
         print("Couldn't open: ", path)
         return
     if skipFrames == None:
-        skipFrames = int(cap.get(cv.CV_CAP_PROP_FRAME_COUNT)/100)
+        skipFrames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)/100)
     if skipFrames == 0:
         skipFrames = 200
     if not cap.isOpened():
@@ -71,7 +71,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
         if not ret:
             break
         _, frame = cap.retrieve()
-        time_msec = cap.get( cv2.cv.CV_CAP_PROP_POS_MSEC )   #optional
+        time_msec = cap.get( cv2.CAP_PROP_POS_MSEC )   #optional
         box_score = test_image(sess, frame)
         for indx, abox in enumerate(box_score):
             ser = pd.Series(data=[time_msec, indx]+abox.tolist(), index=df_columns)
