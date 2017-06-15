@@ -323,7 +323,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                     if vidInfo == None:
                         vidInfo = pafy.new(uid_to_url(uuid))
                     if stream == None:
-                        stream = vidInfo.getbest()
+                        stream = vidInfo.getbest(preftype='mp4')
                     dim = stream.resolution
                 retArr.append(dim)
             elif column == "Query":
@@ -467,16 +467,18 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         elif len(row_in_csv) > 1: # If there are multiple entries
             rows = row_in_csv
             newRow = []
+            rowsToDrop = []
             for column in columns:
                 added = False
                 for index, row in rows.iterrows():
+                    rowsToDrop.append(index)
                     if row[column] == "" or pd.isnull(row[column]):
                         newRow.append(row[column])
                         added = True
                         break
                 if not added:
                     newRow.append("")
-            information_csv.drop(information_csv.index[list(rows.index.values)], inplace=True)
+            information_csv.drop(information_csv.index[rowsToDrop], inplace=True)
             information_csv.loc[len(information_csv)] = pd.Series(
                 newRow, index=columns)
         elif len(row_in_csv) == 0:  # If it isn't already in CSV
@@ -607,7 +609,8 @@ def convertVideo(video_id):
         inputs={path: "-y"},
         outputs={newPath: "-strict -2"}
     )
-    ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
+
+    ff.run()
     delFile(path)
     information_csv[information_csv["UUID"] == video_id]["Format"] = ".mp4"
     information_csv[information_csv["UUID"] == video_id]["File Path"] = newPath
@@ -662,7 +665,7 @@ def hasFaces(path):
     Check if a video
     """
     global graph, sess
-    if not os.path.exists(path):
+    if not os.path.exists(path) and path != "":
         print_and_log("isMoving got passed invalid path: " + path, error=True)
         return
     return checkForFace(path, graph, sess)
@@ -671,12 +674,9 @@ def moveFromTo(from_, to_):
     """
     Moves a file from path to another path
     """
-    try:
-        if not os.path.exists(from_):
-            print("Move got passed an invalid path: "+from_)
-        os.rename(from_, to_)
-    except:
-        pdb.set_trace()
+    if not os.path.exists(from_) and path != "":
+        print("Move got passed an invalid path: "+from_)
+    os.rename(from_, to_)
 
 def uploadToS3(args, video_id):
     global bucket
@@ -766,9 +766,11 @@ def clean_downloads():
     If this process is interupted, please restart it
     and wait until completion.
     """
+    global information_csv
     print_and_log("Cleaning time!!!.....")
     createOutputDirs()
-
+    print_and_log("Deleting duplicates...")
+    information_csv.drop_duplicates(subset="UUID", inplace=True)
     # Remove Duplicates from toConvert and toCheck
     for root, subdirs, files in os.walk("out/toConvert"):
         for file in files:
@@ -858,7 +860,6 @@ def main():
         print_and_log("Loading Face Tracker...")
         graph = load_model_pb(FACE_DETECTION_MODEL)
         sess = tf.Session(graph=graph)
-        print_and_log("Processing downloaded Videos first...")
     NUM_VIDS = int(args.num_vids)
     BACKUP_EVERY_N_VIDEOS = int(args.backup_every)
 
