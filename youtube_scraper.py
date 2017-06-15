@@ -490,7 +490,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         pdb.set_trace()
     information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
 
-@retry(wait_fixed=600000, stop_max_attempt_number=5)
+# @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def scrape_id(query, num_to_download=NUM_VIDS):
     """
     Scrapes youtube and creates or updates entries.
