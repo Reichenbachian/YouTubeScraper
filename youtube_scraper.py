@@ -211,6 +211,8 @@ def convert_caption_to_str(trackList):
     Converts a list of `Track` objects to a string
     """
     retStr = ""
+    if tracklist == None:
+        return retStr
     for track in trackList:
         retStr += "Starts at " + str(track.start) + "s and lasts " + str(
             track.duration) + "s: " + parser.unescape(track.text) + "\n"
