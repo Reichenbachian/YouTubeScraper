@@ -598,14 +598,13 @@ def convertVideo(video_id):
     Converts a video from webm to mp4
     """
     path = get_attribute(video_id, ["File Path"])
-    oldPath = row["File Path"].tolist()[0]
     newPath = "out/toCheck/"+video_id+".mp4"
     ff = ffmpy.FFmpeg(
-        inputs={oldPath: "-y"},
+        inputs={path: "-y"},
         outputs={newPath: None}
     )
     ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
-    delFile(oldPath)
+    delFile(path)
     information_csv[information_csv["UUID"] == video_id]["Format"] = ".mp4"
     information_csv[information_csv["UUID"] == video_id]["File Path"] = newPath
 
