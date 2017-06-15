@@ -668,6 +668,8 @@ def moveFromTo(from_, to_):
     """
     Moves a file from path to another path
     """
+    if not os.path.exists(from_):
+        print("Move got passed an invalid path: "+from_)
     os.rename(from_, to_)
 
 def uploadToS3(args, video_id):
