@@ -141,11 +141,6 @@ def saveCSV(path):
     Saves information_csv, as a csv, to the path in the argument provided
     """
     print_and_log("Saving the CSV...")
-    if sync_counter >= SAVES_PER_SYNC:
-        saveCSVToBoto3()
-        sync_counter = 0
-    else:
-        sync_counter += 1
     try:
         with open(path, 'wb') as fout:
             information_csv.to_csv(path, index=False, encoding='utf-8')
@@ -153,6 +148,11 @@ def saveCSV(path):
         print_and_log("Saved")
     except Exception, e:
         logging.error("Failed to save csv:"+str(e)+"\n"+traceback.format_exc())
+    if sync_counter >= SAVES_PER_SYNC:
+        saveCSVToBoto3()
+        sync_counter = 0
+    else:
+        sync_counter += 1
 
 def convertDataTypes():
     """
@@ -872,7 +872,6 @@ def main():
         QUERIES = [x.strip() for x in QUERIES]
     start_logger(args)
     recover_or_get_youtube_id_dictionary(args)
-    pdb.set_trace()
     information_csv = information_csv.replace(np.nan, "")
     saveCSV(CSV_PATH)
     # Create output folder if it's not there
