@@ -725,6 +725,8 @@ def createOutputDirs():
 
 def createBotoDir(folder):
     global bucket
+    if bucket == None:
+        bucket = s3.Bucket(DATA_BUCKET_NAME)
     bucket.put_object(
         Bucket=DATA_BUCKET_NAME,
         Body='',
