@@ -56,7 +56,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
         print("Couldn't open: ", path)
         return
     if skipFrames == None:
-        skipFrames = int(cap.get(cv2.PROP_FRAME_COUNT)/100)
+        skipFrames = int(cap.get(7)/100) # 7=cv2.PROP_FRAME_COUNT
     if skipFrames == 0:
         skipFrames = 200
     if not cap.isOpened():
@@ -71,7 +71,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
         if not ret:
             break
         _, frame = cap.retrieve()
-        time_msec = cap.get( cv2.PROP_POS_MSEC )   #optional
+        time_msec = cap.get( 0 )   # 0 = cv2.PROP_POS_MSEC
         box_score = test_image(sess, frame)
         for indx, abox in enumerate(box_score):
             ser = pd.Series(data=[time_msec, indx]+abox.tolist(), index=df_columns)
