@@ -882,7 +882,7 @@ def main():
     if args.clean:
         clean_downloads()
     pool = Pool(processes=int(args.num_threads))
-
+    pdb.set_trace()
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
