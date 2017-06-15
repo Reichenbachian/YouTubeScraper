@@ -217,7 +217,7 @@ def convert_caption_to_str(trackList):
     # Make the characters solely ascii
     return retStr.encode('ascii', 'ignore').decode('ascii')
 
-@retry(wait_fixed=600000, stop_max_attempt_number=5)
+# @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def download_caption(video_id):
     """
     Downloads the captions if available and returns an infodict
