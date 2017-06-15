@@ -470,7 +470,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
             newRow = []
             for column in columns:
                 added = False
-                for row in rows:
+                for index, row in rows.iterrows():
                     print(row + " " + column)
                     try:
                         if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
