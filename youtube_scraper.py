@@ -134,6 +134,7 @@ def saveCSVToBoto3():
         master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
         master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
+    s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", CSV_PATH)
 
 def saveCSV(path):
     global sync_counter
@@ -180,7 +181,10 @@ def recover_or_get_youtube_id_dictionary(args):
     global information_csv, CSV_PATH
     # Create JSON file if not there
     CSV_PATH = os.path.join("out/", WORKER_UUID+'.csv')
-    information_csv = pd.read_csv(CSV_PATH)
+    if not os.path.exists(CSV_PATH):
+        information_csv = pd.DataFrame(columns=columns)
+    else:
+        information_csv = pd.read_csv(CSV_PATH)
     convertDataTypes()
     if set(information_csv.keys()) != set(columns): # Check CSV
         print_and_log("CSV and columns disagree")
