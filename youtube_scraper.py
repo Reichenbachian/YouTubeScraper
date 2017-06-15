@@ -490,7 +490,10 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         print_and_log("ERROR ON THREAD: FAILED TO ADD OBJECT!!!!!" +
                     str(e)+"\n"+traceback.format_exc(), error=True)
         pdb.set_trace()
-    information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
+    try:
+        information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
+    except:
+        print("HERE?????????????")
 
 # @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def scrape_id(query, num_to_download=NUM_VIDS):
