@@ -442,7 +442,6 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         print_and_log("Invalid entry blocked: " + str(infoDict.keys()) + " UUID:"+infoDict["UUID"] + "\n", error=True)
         traceback.print_stack()
         return
-    pdb.set_trace()
     try: # make sure whole process doesn't stop based on one error.
         if backup_counter >= BACKUP_EVERY_N_VIDEOS and shouldSave:
             backup_counter = 0
@@ -517,7 +516,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
                 uid = str(search_result["id"]["videoId"])
                 print_and_log("Adding " + uid + " to CSV. From query: " + str(query))
                 pdb.set_trace()
-                create_or_update_entry({"UUID": uid, "Query": str(query)}, shouldSave=False)
+                create_or_update_entry({"UUID": uid, "Query": str(query)})
                 if uid not in information_csv["UUID"]:
                     counter += 1
             except Exception, e:
