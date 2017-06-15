@@ -847,6 +847,7 @@ def main():
     ######################### Initialize #########################
     args = parse_args()
     createBotoDirs()
+    createOutputDirs()
     shutil.rmtree("out/tmp/") # Remove temporary files
     #### Make remote connections and load models if necessary
     print_and_log("Connecting to s3...")
@@ -859,7 +860,6 @@ def main():
         graph = load_model_pb(FACE_DETECTION_MODEL)
         sess = tf.Session(graph=graph)
         print_and_log("Processing downloaded Videos first...")
-    createOutputDirs()
     NUM_VIDS = int(args.num_vids)
     BACKUP_EVERY_N_VIDEOS = int(args.backup_every)
 
