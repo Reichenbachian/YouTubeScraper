@@ -605,7 +605,7 @@ def convertVideo(video_id):
     newPath = "out/toCheck/"+video_id+".mp4"
     ff = ffmpy.FFmpeg(
         inputs={path: "-y"},
-        outputs={newPath: None}
+        outputs={newPath: "-strict -2"}
     )
     ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
     delFile(path)
