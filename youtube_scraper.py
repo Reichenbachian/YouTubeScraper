@@ -194,7 +194,7 @@ def recover_or_get_youtube_id_dictionary(args):
             # been downloaded yet.
             num_ids_to_get = NUM_VIDS - len(information_csv[(isEmpty("File Path")) &\
                         (information_csv['Query'].str.contains(key))]["Query"].tolist())
-            if num_ids_to_get < 0\
+            if num_ids_to_get <= 0\
                         and not args.rebuild:
                 logging.info("Found enough non-downloaded results with query:" + key +
                              " Using solely cached results.")
