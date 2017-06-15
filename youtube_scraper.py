@@ -514,6 +514,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             try:
                 uid = str(search_result["id"]["videoId"])
                 print_and_log("Adding " + uid + " to CSV. From query: " + str(query))
+                pdb.set_trace()
                 create_or_update_entry({"UUID": uid, "Query": str(query)}, shouldSave=False)
                 if uid not in information_csv["UUID"]:
                     counter += 1
@@ -872,6 +873,7 @@ def main():
         QUERIES = [x.strip() for x in QUERIES]
     start_logger(args)
     recover_or_get_youtube_id_dictionary(args)
+    pdb.set_trace()
     information_csv = information_csv.replace(np.nan, "")
     saveCSV(CSV_PATH)
     # Create output folder if it's not there
