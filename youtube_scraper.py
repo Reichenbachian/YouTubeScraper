@@ -684,7 +684,7 @@ def uploadToS3(args, video_id):
     """
     global information_csv
     path, type_ = get_attribute(video_id, ["File Path", "Format"])
-    infoDict = {"UUID": video_id, "File Path": path, "Format", type_}
+    infoDict = {"UUID": video_id, "File Path": path, "Format": type_}
     if path == "":
         return infoDict
     # get second to last occurence
