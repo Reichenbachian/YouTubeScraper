@@ -442,6 +442,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         print_and_log("Invalid entry blocked: " + str(infoDict.keys()) + " UUID:"+infoDict["UUID"] + "\n", error=True)
         traceback.print_stack()
         return
+    pdb.set_trace()
     try: # make sure whole process doesn't stop based on one error.
         if backup_counter >= BACKUP_EVERY_N_VIDEOS and shouldSave:
             backup_counter = 0
@@ -453,6 +454,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         date = time.strftime("%d/%m/%Y %H:%M:%S")
         columns_except_url_and_uid = columns[3:]
         row_in_csv = information_csv[information_csv["UUID"] == uid] # get row
+        pdb.set_trace()
         if len(row_in_csv) == 1:  # If it is already in the CSV
             try:
                 for column in infoDict.keys():
