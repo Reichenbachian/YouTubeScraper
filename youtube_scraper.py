@@ -841,12 +841,12 @@ def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
     ######################### Initialize #########################
     args = parse_args()
+    createBotoDirs()
     shutil.rmtree("out/tmp/") # Remove temporary files
     #### Make remote connections and load models if necessary
     print_and_log("Connecting to s3...")
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(DATA_BUCKET_NAME)
-    createBotoDirs()
     print_and_log("Created Boto3 directories if not already there")
 
     if args.categorize:
