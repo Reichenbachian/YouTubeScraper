@@ -124,14 +124,14 @@ def saveCSVToBoto3():
         print_and_log("I AM MASTER -> Combining online CSVs...")
         csvs = []
         client = boto3.client('s3')
-        master_df = pd.DataFrame()
+        master_df = pd.DataFrame(columns=columns)
         for item in client.list_objects(Bucket=DATA_BUCKET_NAME)["Contents"]:
             if '.csv' in item["Key"] and "master" not in item["Key"]:
                 name = item["Key"]
                 name = name[name.rfind('/')+1:]
                 csvs.append(name)
                 s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), left_on="UUID")
+                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), how="inner", left_on="UUID", right_on="UUID")
         # master_df = pd.merge([pd.read_csv("out/tmp/"+name) for name in csvs], left_index=True)
         master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
@@ -471,10 +471,14 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
             for column in columns:
                 added = False
                 for row in rows:
-                    if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
-                        newRow.append(row[column])
-                        added = True
-                        break
+                    print(row + " " + column)
+                    try:
+                        if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
+                            newRow.append(row[column])
+                            added = True
+                            break
+                    except:
+                        pdb.set_trace()
                 if not added:
                     newRow.append("")
             information_csv.drop(information_csv.index[list(rows.index.values)], inplace=True)
@@ -845,9 +849,10 @@ def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
     ######################### Initialize #########################
     args = parse_args()
-    createBotoDirs()
+    if os.path.exists("out/tmp/"):
+        shutil.rmtree("out/tmp/") # Remove temporary files
     createOutputDirs()
-    shutil.rmtree("out/tmp/") # Remove temporary files
+    createBotoDirs()
     #### Make remote connections and load models if necessary
     print_and_log("Connecting to s3...")
     s3 = boto3.resource('s3')
