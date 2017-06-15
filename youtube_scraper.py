@@ -110,7 +110,7 @@ def parse_args():
     return args
 
 def saveCSVToBoto3():
-    global bucket
+    global bucket, s3
     print_and_log("Syncing to s3...")
     fileName = WORKER_UUID+'.csv'
     if bucket == None:
@@ -123,7 +123,6 @@ def saveCSVToBoto3():
     if MASTER_PROCESS:
         print_and_log("I AM MASTER -> Combining online CSVs...")
         csvs = []
-        s3 = boto3.resource('s3')
         client = boto3.client('s3')
         for item in client.list_objects(Bucket=DATA_BUCKET_NAME)["Contents"]:
             if '.csv' in item["Key"] and "master" not in item["Key"]:
