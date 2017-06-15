@@ -130,7 +130,7 @@ def saveCSVToBoto3():
                 name = name[name.rfind('/')+1:]
                 csvs.append(name)
                 s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), how="inner", left_on="UUID", right_on="UUID")
+                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), how="outer", on=columns)
         # master_df = pd.merge([pd.read_csv("out/tmp/"+name) for name in csvs], left_index=True)
         master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
