@@ -69,9 +69,9 @@ s3 = boto3.resource('s3')
 # Create dataframe
 columns = ["Url", "UUID", "Date Updated", "Query", "Format", "File Path", "Dimensions",
             "Title", "Description", "Duration",
-           "Captions", "Size(bytes)", "Keywords", "Viewcount", "Faces", "Conversation", "Author", "Uploaded"]
+           "Captions", "Size(bytes)", "Keywords", "Viewcount", "Faces", "Conversation", "Author", "Uploaded", "Worker"]
 
-columnTypes = [str, str, str, str, str, str, str, str, str, float, str, float, str, float, bool, bool, str, bool]
+columnTypes = [str, str, str, str, str, str, str, str, str, float, str, float, str, float, bool, bool, str, bool, str]
 information_csv = pd.DataFrame(columns=columns)
 backup_counter = 0
 sync_counter = 0
@@ -130,8 +130,8 @@ def saveCSVToBoto3():
                 name = name[name.rfind('/')+1:]
                 csvs.append(name)
                 s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-                master_df = pd.merge(master_df, pd.read_csv("out/tmp/"+name), how="outer", right_on='UUID', on=columns)
-        # master_df = pd.merge([pd.read_csv("out/tmp/"+name) for name in csvs], left_index=True)
+        master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
+        master_df.drop_duplicates(subset="UUID", inplace=True)
         master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
         bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
     s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", CSV_PATH)
@@ -569,7 +569,7 @@ def download_video(uid):
                 "Size(bytes)": stream.get_filesize(), "File Path": filepath,
                 "Duration": parser.unescape(video_object.duration).encode('ascii', 'ignore').decode('ascii'),
                 "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii'),
-                "Captions": captions, "Date Updated": datetime.now().strftime('%Y/%m/%d %H:%M:%S')}
+                "Captions": captions, "Date Updated": datetime.now().strftime('%Y/%m/%d %H:%M:%S'), "Worker": WORKER_UUID}
     except KeyError, e:
         print_and_log("Pafy backend failure on "+video_id)
     return infoDict
@@ -693,6 +693,7 @@ def uploadToS3(args, video_id):
     print_and_log("Uploading " + path + " to " + s3path)
     bucket.upload_file(path, s3path)
     infoDict["Uploaded"] = True
+    infoDict["Worker"] = "On Master"
     return infoDict
 
 def categorize_video(args, video_id):
@@ -800,18 +801,18 @@ def clean_downloads():
                 elif ".webm" in file:
                     if "toConvert/" not in path:
                         moveFromTo(path, "out/toConvert/"+uid+".webm")
-                    create_or_update_entry({"UUID": uid, "File Path": "out/toConvert/"+uid+".webm", "Format": "webm"}, shouldSave=False, reset=True)
+                    create_or_update_entry({"UUID": uid, "File Path": "out/toConvert/"+uid+".webm", "Format": "webm", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                 elif ".mp4" in file:
                     if "Multimodal" in root:
-                        create_or_update_entry({"UUID": uid, "Conversation": True, "Faces": True, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Conversation": True, "Faces": True, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "Conversation" in root:
-                        create_or_update_entry({"UUID": uid, "Conversation": True, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Conversation": True, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "Faces" in root:
-                        create_or_update_entry({"UUID": uid, "Faces": True, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Faces": True, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "Trash" in root:
-                        create_or_update_entry({"UUID": uid, "Faces": False, "Conversation":False, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Faces": False, "Conversation":False, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "toCheck" in root:
-                        create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
     saveCSV(CSV_PATH)
 
 def categorize_video_wrapper(args, video_id):
@@ -887,22 +888,26 @@ def main():
 
     if args.convert:
         print_and_log("Starting Conversion...")
-        for _id in tqdm(information_csv[((information_csv['File Path'].str.contains("webm")) &
-                                         (~isEmpty("File Path")))]["UUID"].tolist()):
+        for _id in tqdm(information_csv[(information_csv['File Path'].str.contains("webm")) &
+                                         (~isEmpty("File Path")) &
+                                         (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             convert_wrapper(_id)
 
     if args.categorize:
         print_and_log("Switching to Categorize...")
-        for _id in tqdm(information_csv.loc[(~isEmpty("File Path")) & (information_csv['File Path'].str.contains("toCheck"))]["UUID"].tolist()):
+        for _id in tqdm(information_csv.loc[(~isEmpty("File Path")) &
+                                            (information_csv['File Path'].str.contains("toCheck")) &
+                                            (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             create_or_update_entry(categorize_video_wrapper(args, _id))
             # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
     if args.upload:
         print_and_log("Switching to Uploading...")
-        for _id in tqdm(information_csv[((~isEmpty("File Path")) &
+        for _id in tqdm(information_csv[(~isEmpty("File Path")) &
                                           ((information_csv["Uploaded"] == False) | (isEmpty("Uploaded"))) &
                                           (information_csv['File Path'].str.contains("Multimodal") |
                                            information_csv['File Path'].str.contains("Conversation") |
-                                           information_csv['File Path'].str.contains("Faces")))]["UUID"].tolist()):
+                                           information_csv['File Path'].str.contains("Faces")) &
+                                           (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
     saveCSV(CSV_PATH)
     pool.close()
