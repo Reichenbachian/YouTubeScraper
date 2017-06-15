@@ -65,6 +65,7 @@ OPEN_ON_DOWNLOAD = False # Should the program open the videos once downloaded?
 WORKER_UUID = open("Worker_Key.key").readlines()[0].strip()
 bucket, graph, sess = None, None, None  # Initializing variables globally
 parser = HTMLParser.HTMLParser()
+s3 = boto3.resource('s3')
 
 # Create dataframe
 columns = ["Url", "UUID", "Date Updated", "Format", "File Path", "Dimensions",
