@@ -68,8 +68,8 @@ parser = HTMLParser.HTMLParser()
 s3 = boto3.resource('s3')
 
 # Create dataframe
-columns = ["Url", "UUID", "Date Updated", "Format", "File Path", "Dimensions",
-           "Query", "Title", "Description", "Duration",
+columns = ["Url", "UUID", "Date Updated", "Query", "Format", "File Path", "Dimensions",
+            "Title", "Description", "Duration",
            "Captions", "Size(bytes)", "Keywords", "Viewcount", "Faces", "Conversation", "Author", "Uploaded"]
 
 columnTypes = [str, str, str, str, str, str, str, str, str, float, str, float, str, float, bool, bool, str, bool]
@@ -451,7 +451,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         uid = str(infoDict["UUID"])
         url = uid_to_url(uid)
         date = time.strftime("%d/%m/%Y %H:%M:%S")
-        columns_except_url_and_uid = columns[3:]
+        columns_except_url_and_uid = columns[4:]
         row_in_csv = information_csv[information_csv["UUID"] == uid] # get row
         if len(row_in_csv) == 1:  # If it is already in the CSV
             try:
