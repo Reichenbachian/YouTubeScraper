@@ -67,7 +67,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
     counter = 0
     threshold = 5
     for frameIndex in range(1, int(num_frames), int(skipFrames)):
-        cap.set(cv2.cv.CV_CAP_PROP_POS_FRAMES,frameIndex);
+        cap.set(1,frameIndex); # cv2.cv.CV_CAP_PROP_POS_FRAMES = 1
         ret, frame = getFrame(cap)
         if not ret:
             break
