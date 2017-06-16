@@ -55,8 +55,10 @@ def checkForFace(path, graph, sess, skipFrames=None):
     except:
         print("Couldn't open: ", path)
         return
+    num_frames_to_check = 100
+    num_frames = cap.get(7)
     if skipFrames == None:
-        skipFrames = int(cap.get(7)/100) # 7=cv2.PROP_FRAME_COUNT
+        skipFrames = int(num_frames/num_frames_to_check) # 7=cv2.PROP_FRAME_COUNT
     if skipFrames == 0:
         skipFrames = 200
         
@@ -65,13 +67,11 @@ def checkForFace(path, graph, sess, skipFrames=None):
 
     counter = 0
     threshold = 5
-    while cap.grab():
-        for i in range(skipFrames-1):
-            ret, curframe = cap.read()
-        ret, curframe = getFrame(cap)
+    for frame in tqdm(range(0, int(num_frames), int(skipFrames))):
+        cap.set(2,frame);
+        ret, frame = getFrame(cap)
         if not ret:
             break
-        _, frame = cap.retrieve()
         time_msec = cap.get( 0 )   # 0 = cv2.PROP_POS_MSEC
         box_score = test_image(sess, frame)
         for indx, abox in enumerate(box_score):

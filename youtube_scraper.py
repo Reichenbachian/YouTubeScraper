@@ -35,6 +35,7 @@ import VadCollector
 import traceback
 import MovementDetect
 from datetime import datetime
+import timeout_decorator
 
 # Set DEVELOPER_KEY to the API key value from the APIs & auth > Registered apps
 # tab of
@@ -550,7 +551,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             allResultsRead = True
     BACKUP_EVERY_N_VIDEOS = temp
 
-# @retry(wait_fixed=600000, stop_max_attempt_number=5)
+@timeout_decorator.timeout(60*20, timeout_exception=StopIteration)
 def download_video(uid):
     """
     Downloads a video of a specific uid
@@ -667,6 +668,7 @@ def hasConversation(id_):
     os.remove(path)
     return percentage > SPEECH_TRHESHHOLD
 
+@timeout_decorator.timeout(60*5, timeout_exception=StopIteration)
 def hasFaces(path):
     """
     Check if a video
@@ -920,8 +922,8 @@ def main():
         print_and_log("Switching to Categorize...")
         for _id in tqdm(information_csv.loc[(information_csv['File Path'].str.contains("toCheck")) &
                                             (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(_id))
-            # pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry)
+            # create_or_update_entry(categorize_video_wrapper(_id))
+            pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry)
     if args.upload:
         print_and_log("Switching to Uploading...")
         for _id in tqdm(information_csv[(~is_empty_or_false("File Path")) &
