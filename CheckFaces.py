@@ -60,7 +60,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
     if skipFrames == 0:
         skipFrames = 200
     if not cap.isOpened():
-        raise RuntimeError ("Failed to open video file")
+        raise RuntimeError ("Failed to open video file at path "+str(path))
 
     counter = 0
     threshold = 5
