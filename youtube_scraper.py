@@ -868,6 +868,9 @@ def convert_wrapper(id_):
         print_and_log("Error in converting video: on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
+def print_error(e):
+    print_and_log(str(e), error=True)
+
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
     ######################### Initialize #########################
@@ -923,7 +926,7 @@ def main():
         for _id in tqdm(information_csv.loc[(information_csv['File Path'].str.contains("toCheck")) &
                                             (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             # create_or_update_entry(categorize_video_wrapper(_id))
-            pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry)
+            pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry, error_callback=print_error)
     if args.upload:
         print_and_log("Switching to Uploading...")
         for _id in tqdm(information_csv[(~is_empty_or_false("File Path")) &
