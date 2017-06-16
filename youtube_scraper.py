@@ -255,6 +255,9 @@ def exists_in_boto3(path, search=False):
     doesn't find it at first.
     '''
     global bucket
+    print(path)
+    if path == "":
+        return False
     if bucket == None:
         bucket = s3.Bucket(DATA_BUCKET_NAME)
     objs = list(bucket.objects.filter(Prefix=path))
@@ -268,7 +271,7 @@ def exists_in_boto3(path, search=False):
     return at_path
 
 # TO-DO: Review this function
-def get_attributes(uuid, requested_columns, HardReset=False):
+def get_attributes(uuid, requested_columns, HardReset=False, categorize=False):
     """
     Gets a list of attributes with all the possible failsafes I can think of.
     Assumptions:
@@ -308,11 +311,7 @@ def get_attributes(uuid, requested_columns, HardReset=False):
             elif column == "UUID":
                 retArr.append(uuid)
             elif column == "Date Updated":
-                date = infoDict["Date Updated"]
-                if date == "":
-                    date = datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-                    infoDict["Date Updated"] = date
-                    retArr.append(date)
+                retArr.append(datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
             elif column == "Format":
                 format_ = infoDict["File Path"]
                 format_ = format_[format_.rfind(".")+1:]
@@ -337,7 +336,7 @@ def get_attributes(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     if cap == None:
                         cap = cv2.VideoCapture(path)
-                    retArr.append(cap.get(cv2.CAP_PROP_FRAMES)/cap.get(cv2.CAP_PROP_FPS))
+                    retArr.append(cap.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)/cap.get(5)) # 5=cv2.CAP_PROP_FPS
                 elif "Duration" in infoDict.keys():
                     retArr.append(infoDict["Duration"])
                 else:
@@ -346,7 +345,6 @@ def get_attributes(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     captions = download_caption(uuid)
                     retArr.append(captions)
-                    infoDict["Captions"] = captions
                 else:
                     retArr.append("")
             elif column == "Size(bytes)":
@@ -368,7 +366,10 @@ def get_attributes(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     if vidInfo == None:
                         vidInfo = pafy.new(uid_to_url(uuid))
-                    desc = parser.unescape(vidInfo.description).encode('ascii', 'ignore').decode('ascii')
+                    try:
+                        desc = parser.unescape(vidInfo.description).encode('ascii', 'ignore').decode('ascii')
+                    except:
+                        continue
                 retArr.append(desc)
                 infoDict["Description"] = desc
             elif column == "Keywords":
@@ -396,7 +397,7 @@ def get_attributes(uuid, requested_columns, HardReset=False):
                 retArr.append(author) 
                 infoDict["Author"] = author
             elif column == "Faces":
-                if infoDict["File Path"] != "" and HardReset:
+                if infoDict["File Path"] != "" and categorize:
                     doesHaveMovement = isMoving(infoDict["File Path"])
                     doesHaveFaces = False
                     if doesHaveMovement:
@@ -408,7 +409,7 @@ def get_attributes(uuid, requested_columns, HardReset=False):
                     infoDict["Faces"] = ""
                 retArr.append(infoDict["Faces"])
             elif column == "Conversation":
-                if infoDict["File Path"] != "" and HardReset:
+                if infoDict["File Path"] != "" and categorize:
                     doesHaveConversation = hasConversation(uuid)
                     retArr.append(doesHaveConversation)
                     infoDict["Conversation"] = doesHaveConversation
@@ -417,9 +418,9 @@ def get_attributes(uuid, requested_columns, HardReset=False):
                     retArr.append("")
             elif column == "Uploaded":
                 if HardReset:
-                    retArr.append(exists_in_boto3(infoDict["File Path"].replace("out/", "")))
+                    retArr.append(exists_in_boto3(infoDict["File Path"].replace("out/", ""), search=True))
                 else:
-                    retArr.append("")
+                    retArr.append(False)
             else:
                 print_and_log("Invalid requested frame. Column: " + column + " ID: " + uuid, error=True)
                 traceback.print_stack()
@@ -505,6 +506,9 @@ def scrape_id(query, num_to_download=NUM_VIDS):
     """
     Scrapes youtube and creates or updates entries.
     """
+    global BACKUP_EVERY_N_VIDEOS
+    temp = BACKUP_EVERY_N_VIDEOS
+    BACKUP_EVERY_N_VIDEOS = BACKUP_EVERY_N_VIDEOS*20
     youtube_api = build(YOUTUBE_API_SERVICE_NAME,
                         YOUTUBE_API_VERSION, developerKey=DEVELOPER_KEY)
     # Call the search.list method to retrieve results matching the specified
@@ -544,6 +548,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             )
         except KeyError:
             allResultsRead = True
+    BACKUP_EVERY_N_VIDEOS = temp
 
 # @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def download_video(uid):
@@ -771,7 +776,7 @@ def clean_downloads():
     If this process is interupted, please restart it
     and wait until completion.
     """
-    global information_csv
+    global information_csv, BACKUP_EVERY_N_VIDEOS, bucket
     print_and_log("Cleaning time!!!.....")
     createOutputDirs()
     print_and_log("Deleting duplicates...")
@@ -789,8 +794,8 @@ def clean_downloads():
     
     # Go through the folders and update the csv to reflect file structure.
     information_csv["File Path"] = ""
-    information_csv["Conversation"] = ""
-    information_csv["Faces"] = ""
+    information_csv["Conversation"] = False
+    information_csv["Faces"] = False
     for root, subdirs, files in os.walk("out/"):
         if len(files) > 0:
             for file in tqdm(files):
@@ -817,6 +822,16 @@ def clean_downloads():
                         create_or_update_entry({"UUID": uid, "Faces": False, "Conversation":False, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "toCheck" in root:
                         create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
+    information_csv = information_csv[information_csv['UUID'].map(len) == 11]
+    print_and_log("Fixing and updating CSV...")
+    temp = BACKUP_EVERY_N_VIDEOS
+    BACKUP_EVERY_N_VIDEOS = 100
+    print_and_log("Checking what's in s3...")
+    information_csv["Uploaded"] = False # don't use get_attributes for speed benefit
+    for item in bucket.objects.all():
+        if 'mp4' in item.key:
+            create_or_update_entry({"UUID":item.key[item.key.rfind("/")+1:-4], "Uploaded":True})
+    BACKUP_EVERY_N_VIDEOS = temp
     saveCSV(CSV_PATH)
 
 def categorize_video_wrapper(args, video_id):
