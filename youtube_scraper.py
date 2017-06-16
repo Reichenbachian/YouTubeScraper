@@ -268,7 +268,7 @@ def exists_in_boto3(path, search=False):
     return at_path
 
 # TO-DO: Review this function
-def get_attribute(uuid, requested_columns, HardReset=False):
+def get_attributes(uuid, requested_columns, HardReset=False):
     """
     Gets a list of attributes with all the possible failsafes I can think of.
     Assumptions:
@@ -299,6 +299,8 @@ def get_attribute(uuid, requested_columns, HardReset=False):
         else:
             if column == "File Path": # Already confirmed earlier
                 retArr.append(infoDict["File Path"])
+            elif column == "Worker":
+                retArr.append(WORKER_UUID)
             elif column == "Url":
                 url = uid_to_url(uuid)
                 infoDict["Url"] = uuid
@@ -483,7 +485,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
                 newRow, index=columns)
         elif len(row_in_csv) == 0:  # If it isn't already in CSV
             newRow = [url, uid, date, infoDict["Query"] if "Query" in infoDict.keys() else ""]
-            newRow += get_attribute(uid, columns_except_url_and_uid)
+            newRow += get_attributes(uid, columns_except_url_and_uid)
             assert len(information_csv.keys()) == len(newRow)
             information_csv.loc[len(information_csv)] = pd.Series(
                 newRow, index=columns)
@@ -603,7 +605,7 @@ def convertVideo(video_id):
     """
     Converts a video from webm to mp4
     """
-    path = get_attribute(video_id, ["File Path"])[0]
+    path = get_attributes(video_id, ["File Path"])[0]
     newPath = "out/toCheck/"+video_id+".mp4"
     ff = ffmpy.FFmpeg(
         inputs={path: "-y"},
@@ -619,7 +621,7 @@ def stripAudio(video_id):
     """
     Strips wav from mp4
     """
-    path = get_attribute(video_id, ["File Path"])[0]
+    path = get_attributes(video_id, ["File Path"])[0]
     newPath = "out/tmp/"+video_id+".wav"
     if not os.path.exists(newPath):
         ff = ffmpy.FFmpeg(
@@ -684,7 +686,7 @@ def uploadToS3(args, video_id):
     Upload to S3 and update information_csv
     """
     global information_csv
-    path, type_ = get_attribute(video_id, ["File Path", "Format"])
+    path, type_ = get_attributes(video_id, ["File Path", "Format"])
     infoDict = {"UUID": video_id, "File Path": path, "Format": type_}
     if path == "":
         return infoDict
@@ -701,8 +703,10 @@ def categorize_video(args, video_id):
     Categorize a video, move to correct folder, and return new infoDict
     """
     print_and_log("Categorizing "+video_id)
-    doesHaveConversation, doesHaveFaces, filepath = get_attribute(video_id, ["Conversation", "Faces", "File Path"], True)
+    doesHaveConversation, doesHaveFaces, filepath = get_attributes(video_id, ["Conversation", "Faces", "File Path"], True)
     infoDict = {"UUID": video_id, "Faces": doesHaveFaces, "Conversation": doesHaveConversation}
+    if filepath == "":
+        return infoDict
     fileName = filepath[filepath.rfind("/")+1:]
     print("Face, "+str(doesHaveFaces)+" | Speech, "+str(doesHaveConversation))
     newPath = ""
@@ -895,8 +899,7 @@ def main():
 
     if args.categorize:
         print_and_log("Switching to Categorize...")
-        for _id in tqdm(information_csv.loc[(~isEmpty("File Path")) &
-                                            (information_csv['File Path'].str.contains("toCheck")) &
+        for _id in tqdm(information_csv.loc[(information_csv['File Path'].str.contains("toCheck")) &
                                             (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             create_or_update_entry(categorize_video_wrapper(args, _id))
             # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
