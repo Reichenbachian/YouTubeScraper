@@ -703,12 +703,12 @@ def uploadToS3(args, video_id):
     infoDict["Worker"] = "On Master"
     return infoDict
 
-def categorize_video(args, video_id):
+def categorize_video(video_id):
     """
     Categorize a video, move to correct folder, and return new infoDict
     """
     print_and_log("Categorizing "+video_id)
-    doesHaveConversation, doesHaveFaces, filepath = get_attributes(video_id, ["Conversation", "Faces", "File Path"], True)
+    doesHaveConversation, doesHaveFaces, filepath = get_attributes(video_id, ["Conversation", "Faces", "File Path"], HardReset=True, categorize=True)
     infoDict = {"UUID": video_id, "Faces": doesHaveFaces, "Conversation": doesHaveConversation}
     if filepath == "":
         return infoDict
@@ -834,9 +834,9 @@ def clean_downloads():
     BACKUP_EVERY_N_VIDEOS = temp
     saveCSV(CSV_PATH)
 
-def categorize_video_wrapper(args, video_id):
+def categorize_video_wrapper(video_id):
     try:
-        return categorize_video(args, video_id)
+        return categorize_video(video_id)
     except Exception, e:
         print_and_log("Error in categorization on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
@@ -916,8 +916,8 @@ def main():
         print_and_log("Switching to Categorize...")
         for _id in tqdm(information_csv.loc[(information_csv['File Path'].str.contains("toCheck")) &
                                             (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(args, _id))
-            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+            create_or_update_entry(categorize_video_wrapper(_id))
+            # pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry)
     if args.upload:
         print_and_log("Switching to Uploading...")
         for _id in tqdm(information_csv[(~is_empty_or_false("File Path")) &
