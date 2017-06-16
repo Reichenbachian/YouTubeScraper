@@ -16,7 +16,6 @@ from tqdm import tqdm
 from multiprocessing import Pool
 
 
-
 def load_model_pb(pb_path):
     with tf.gfile.GFile(pb_path,'r') as f:
         graph_def = tf.GraphDef()
@@ -67,8 +66,8 @@ def checkForFace(path, graph, sess, skipFrames=None):
 
     counter = 0
     threshold = 5
-    for frame in tqdm(range(0, int(num_frames), int(skipFrames))):
-        cap.set(2,frame);
+    for frameIndex in range(1, int(num_frames), int(skipFrames)):
+        cap.set(cv2.cv.CV_CAP_PROP_POS_FRAMES,frameIndex);
         ret, frame = getFrame(cap)
         if not ret:
             break
