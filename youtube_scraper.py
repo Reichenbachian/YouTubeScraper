@@ -167,9 +167,9 @@ def convertDataTypes():
         information_csv[[column]] = information_csv[
             [column]].astype(columnTypes[i])
 
-def isEmpty(column):
+def is_empty_or_false(column):
     if information_csv[column].dtype == bool:
-        return (information_csv[column].isnull())
+        return (information_csv[column].isnull() | (information_csv[column] == False))
     return (information_csv[column] == "") | (information_csv["File Path"].str.contains("nan"))
 
 def recover_or_get_youtube_id_dictionary(args):
@@ -193,7 +193,7 @@ def recover_or_get_youtube_id_dictionary(args):
         try:
             # The number of queries in csv that haven't
             # been downloaded yet.
-            num_ids_to_get = NUM_VIDS - len(information_csv[(isEmpty("File Path")) &\
+            num_ids_to_get = NUM_VIDS - len(information_csv[(is_empty_or_false("File Path")) &\
                         (information_csv['Query'].str.contains(key))]["Query"].tolist())
             if num_ids_to_get <= 0\
                         and not args.rebuild:
@@ -902,13 +902,13 @@ def main():
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
-            for _id in information_csv[(information_csv["Query"] == q) & (isEmpty("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
+            for _id in information_csv[(information_csv["Query"] == q) & (is_empty_or_false("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
                 download_video(_id)
 
     if args.convert:
         print_and_log("Starting Conversion...")
         for _id in tqdm(information_csv[(information_csv['File Path'].str.contains("webm")) &
-                                         (~isEmpty("File Path")) &
+                                         (~is_empty_or_false("File Path")) &
                                          (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             convert_wrapper(_id)
 
@@ -920,8 +920,8 @@ def main():
             # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
     if args.upload:
         print_and_log("Switching to Uploading...")
-        for _id in tqdm(information_csv[(~isEmpty("File Path")) &
-                                          ((information_csv["Uploaded"] == False) | (isEmpty("Uploaded"))) &
+        for _id in tqdm(information_csv[(~is_empty_or_false("File Path")) &
+                                          ((information_csv["Uploaded"] == False) | (is_empty_or_false("Uploaded"))) &
                                           (information_csv['File Path'].str.contains("Multimodal") |
                                            information_csv['File Path'].str.contains("Conversation") |
                                            information_csv['File Path'].str.contains("Faces")) &
