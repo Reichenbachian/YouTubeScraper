@@ -673,9 +673,10 @@ def hasFaces(path):
     """
     global graph, sess
     if not os.path.exists(path) and path != "":
-        print_and_log("isMoving got passed invalid path: " + path, error=True)
+        print_and_log("hasFaces got passed invalid path: " + path, error=True)
         return
     if graph == None or sess == None:
+        print_and_log("graph and sess are none, reinitializing...")
         graph = load_model_pb(FACE_DETECTION_MODEL)
         sess = tf.Session(graph=graph)
     return checkForFace(path, graph, sess)
@@ -919,8 +920,8 @@ def main():
         print_and_log("Switching to Categorize...")
         for _id in tqdm(information_csv.loc[(information_csv['File Path'].str.contains("toCheck")) &
                                             (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(_id))
-            # pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry)
+            # create_or_update_entry(categorize_video_wrapper(_id))
+            pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry)
     if args.upload:
         print_and_log("Switching to Uploading...")
         for _id in tqdm(information_csv[(~is_empty_or_false("File Path")) &

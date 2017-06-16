@@ -59,6 +59,7 @@ def checkForFace(path, graph, sess, skipFrames=None):
         skipFrames = int(cap.get(7)/100) # 7=cv2.PROP_FRAME_COUNT
     if skipFrames == 0:
         skipFrames = 200
+        
     if not cap.isOpened():
         raise RuntimeError ("Failed to open video file at path "+str(path))
 
