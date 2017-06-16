@@ -675,6 +675,9 @@ def hasFaces(path):
     if not os.path.exists(path) and path != "":
         print_and_log("isMoving got passed invalid path: " + path, error=True)
         return
+    if graph == None or sess == None:
+        graph = load_model_pb(FACE_DETECTION_MODEL)
+        sess = tf.Session(graph=graph)
     return checkForFace(path, graph, sess)
 
 def moveFromTo(from_, to_):
