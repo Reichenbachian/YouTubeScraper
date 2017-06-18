@@ -551,7 +551,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             allResultsRead = True
     BACKUP_EVERY_N_VIDEOS = temp
 
-@timeout_decorator.timeout(60*20, timeout_exception=StopIteration)
+@retry(wait_fixed=60*15, stop_max_attempt_number=5)
 def download_video(uid):
     """
     Downloads a video of a specific uid
@@ -912,8 +912,8 @@ def main():
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
             for _id in information_csv[(information_csv["Query"] == q) & (is_empty_or_false("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
-                download_video(_id)
-
+                # download_video(_id)
+                pool.apply_async(download_video, args=(_id,))
     if args.convert:
         print_and_log("Starting Conversion...")
         for _id in tqdm(information_csv[(information_csv['File Path'].str.contains("webm")) &
