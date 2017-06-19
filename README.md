@@ -1,3 +1,6 @@
+## Youtube Scraper
+This script will scrape videos from youtube, sort by precense of faces and conversation, and upload to s3 accordingly. It has the ability to work with multiple workers simultaneously and will behave asynchronously when possible.
+
 ### Prerequisites
 1. Create a virtualenv and install requirements.
 2. Install the requirements.txt
