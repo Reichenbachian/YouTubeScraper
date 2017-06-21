@@ -121,20 +121,23 @@ def saveCSVToBoto3():
         Key='Workers/'+fileName
         )
     if MASTER_PROCESS:
-        print_and_log("I AM MASTER -> Combining online CSVs...")
-        csvs = []
-        client = boto3.client('s3')
-        master_df = pd.DataFrame(columns=columns)
-        for item in client.list_objects(Bucket=DATA_BUCKET_NAME)["Contents"]:
-            if '.csv' in item["Key"] and "master" not in item["Key"]:
-                name = item["Key"]
-                name = name[name.rfind('/')+1:]
-                csvs.append(name)
-                s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-        master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
-        master_df.drop_duplicates(subset="UUID", inplace=True)
-        master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
-        bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
+        try:
+            print_and_log("I AM MASTER -> Combining online CSVs...")
+            csvs = []
+            client = boto3.client('s3')
+            master_df = pd.DataFrame(columns=columns)
+            for item in client.list_objects(Bucket=DATA_BUCKET_NAME, Prefix='Workers')["Contents"]:
+                if 'csv' in item["Key"] and "master" not in item["Key"]:
+                    name = item["Key"]
+                    name = name[name.rfind('/')+1:]
+                    csvs.append(name)
+                    s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
+            master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
+            master_df.drop_duplicates(subset="UUID", inplace=True)
+            master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
+            bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
+        except Exception, e:
+            pdb.set_trace()
     s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", CSV_PATH)
 
 def saveCSV(path):
