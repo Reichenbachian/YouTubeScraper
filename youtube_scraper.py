@@ -12,12 +12,10 @@ from oauth2client.tools import argparser, run_flow
 import argparse
 from retrying import retry
 import pafy
-import multiprocessing
-import multiprocessing.pool
+from multiprocessing import Pool
 import logging
 import csv
 import cv2
-import cv
 import httplib2
 import shutil
 import sys
@@ -32,21 +30,12 @@ import pdb
 import re
 from tqdm import tqdm
 import tensorflow as tf
-<<<<<<< HEAD
-from CheckMovement import MotionDetectorInstantaneous, wrapper
 from CheckFaces import load_model_pb, checkForFace
 import VadCollector
 import traceback
-import timeout_decorator
-import subprocess
-
-=======
-from CheckFaces import load_model_pb, checkForFace
-import VadCollector
-import traceback
-import MovementDetect
+# import MovementDetect
 from datetime import datetime
->>>>>>> 6781388b25f6ed46100c90fcb5b3dde311d3d416
+import timeout_decorator
 
 # Set DEVELOPER_KEY to the API key value from the APIs & auth > Registered apps
 # tab of
@@ -54,7 +43,6 @@ from datetime import datetime
 # Please ensure that you have enabled the YouTube Data API for your project.
 # This OAuth 2.0 access scope allows for full read/write access to the
 # authenticated user's account.
-MASTER_PROCESS = True # Should this process take it upon itself to join cloud csv's
 YOUTUBE_READ_WRITE_SCOPE = "https://www.googleapis.com/auth/youtube"
 DEVELOPER_KEY = "AIzaSyBjhRlaxeYd0_b27J0JmosTuf1H5DsN3O4"
 YOUTUBE_READ_WRITE_SSL_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
@@ -63,7 +51,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 DATA_BUCKET_NAME = "youtube-video-data"
 YOUTUBE_API_VERSION = "v3"
 YOUTUBE_MAX_SEARCH_REASULTS = 50
-SAVES_PER_SYNC = 5
+SAVES_PER_SYNC = 20
 BACKUP_EVERY_N_VIDEOS = 5  # Backup to the CSV every this number of videos
 FACE_DETECTION_MODEL = "./zf4_tiny_3900000.pb"  # Face tracking model
 NUM_VIDS = 10  # Number of videos that should be downloaded on default
@@ -74,32 +62,21 @@ CSV_PATH = None  # worker_id.csv should be in out/
 QUERIES = []  # Queries given as command line arguments split up.
 OPEN_ON_DOWNLOAD = False # Should the program open the videos once downloaded?
 WORKER_UUID = open("Worker_Key.key").readlines()[0].strip()
+MASTER_PROCESS = open("Worker_Key.key").readlines()[1].strip() == "True" # Should this process take it upon itself to join cloud csv's
 bucket, graph, sess = None, None, None  # Initializing variables globally
 parser = HTMLParser.HTMLParser()
-UPLOADING = False
-# Create dataframe
-columns = ["Url", "UUID", "Date Updated", "Format", "File Path", "Dimensions",
-           "Query", "Title", "Description", "Duration",
-           "Captions", "Size(bytes)", "Keywords", "Viewcount", "Faces", "Conversation", "Author", "Uploaded"]
+s3 = boto3.resource('s3')
 
-columnTypes = [str, str, str, str, str, str, str, str, str, float, str, float, str, float, bool, bool, str, bool]
+# Create dataframe
+columns = ["Url", "UUID", "Date Updated", "Query", "Format", "File Path", "Dimensions",
+            "Title", "Description", "Duration",
+           "Captions", "Size(bytes)", "Keywords", "Viewcount", "Faces", "Conversation", "Author", "Uploaded", "Worker"]
+
+columnTypes = [str, str, str, str, str, str, str, str, str, float, str, float, str, float, bool, bool, str, bool, str]
 information_csv = pd.DataFrame(columns=columns)
 backup_counter = 0
 sync_counter = 0
 
-class NoDaemonProcess(multiprocessing.Process):
-    def _get_daemon(self):
-        return False
-    def _set_daemon(self, value):
-        pass
-    daemon = property(_get_daemon, _set_daemon)
-
-try:
-    class MyPool(multiprocessing.pool.Pool):
-        Process = NoDaemonProcess
-
-except:
-    pdb.set_trace()
 def parse_args():
     """
     Creates command line arguments
@@ -128,35 +105,49 @@ def parse_args():
                         action="store_true", dest="clean", default=False)
     parser.add_argument("--upload", help="Uploads to S3",
                         action="store_true", dest="upload", default=False)
-    parser.add_argument("--download", help="Just downloads videos",
-                        action="store_true", dest="download", default=False)
 
     args = parser.parse_args()
     return args
 
 def saveCSVToBoto3():
-    global bucket
+    global bucket, s3, information_csv
     print_and_log("Syncing to s3...")
     fileName = WORKER_UUID+'.csv'
+    if bucket == None:
+        bucket = s3.Bucket(DATA_BUCKET_NAME)
     bucket.put_object(
         Bucket=DATA_BUCKET_NAME,
         Body=open("out/"+fileName, 'rb'),
         Key='Workers/'+fileName
         )
     if MASTER_PROCESS:
-        print_and_log("Combining online CSVs...")
-        csvs = []
-        s3 = boto3.resource('s3')
-        client = boto3.client('s3')
-        for item in client.list_objects(Bucket=DATA_BUCKET_NAME)["Contents"]:
-            if '.csv' in item["Key"] and "master" not in item["Key"]:
-                name = item["Key"]
-                name = name[name.rfind('/')+1:]
-                csvs.append(name)
-                s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-        master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
-        master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
-        bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
+        try:
+            print_and_log("I AM MASTER -> Combining online CSVs...")
+            csvs = []
+            client = boto3.client('s3')
+            master_df = pd.DataFrame(columns=columns)
+            for item in client.list_objects(Bucket=DATA_BUCKET_NAME, Prefix='Workers')["Contents"]:
+                if 'csv' in item["Key"] and "master" not in item["Key"] and "Archive" not in item["Key"]:
+                    name = item["Key"]
+                    name = name[name.rfind('/')+1:]
+                    csvs.append(name)
+                    s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
+            master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
+            master_df = master_df.sort_values(['Query'])
+            master_df.drop_duplicates(subset="UUID", inplace=True)
+            master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
+            bucket.upload_file("out/tmp/master.csv", "Workers/Archive/master"+str(time.time())+".csv")
+            bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
+            moveFromTo("out/tmp/master.csv", "Workers/master.csv")
+            information_csv = master_df
+        except Exception, e:
+            pdb.set_trace()
+    else:
+        s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", CSV_PATH)
+        master_df = master_df.sort_values(['Query'])
+        master_df.drop_duplicates(subset="UUID", inplace=True)
+        information_csv = master_df
+    
 
 def saveCSV(path):
     global sync_counter
@@ -164,11 +155,6 @@ def saveCSV(path):
     Saves information_csv, as a csv, to the path in the argument provided
     """
     print_and_log("Saving the CSV...")
-    if sync_counter >= SAVES_PER_SYNC:
-        saveCSVToBoto3()
-        sync_counter = 0
-    else:
-        sync_counter += 1
     try:
         with open(path, 'wb') as fout:
             information_csv.to_csv(path, index=False, encoding='utf-8')
@@ -176,6 +162,11 @@ def saveCSV(path):
         print_and_log("Saved")
     except Exception, e:
         logging.error("Failed to save csv:"+str(e)+"\n"+traceback.format_exc())
+    if sync_counter >= SAVES_PER_SYNC:
+        saveCSVToBoto3()
+        sync_counter = 0
+    else:
+        sync_counter += 1
 
 def convertDataTypes():
     """
@@ -189,9 +180,9 @@ def convertDataTypes():
         information_csv[[column]] = information_csv[
             [column]].astype(columnTypes[i])
 
-def isEmpty(column):
+def is_empty_or_false(column):
     if information_csv[column].dtype == bool:
-        return (information_csv[column].isnull())
+        return (information_csv[column].isnull() | (information_csv[column] == False))
     return (information_csv[column] == "") | (information_csv["File Path"].str.contains("nan"))
 
 def recover_or_get_youtube_id_dictionary(args):
@@ -203,7 +194,11 @@ def recover_or_get_youtube_id_dictionary(args):
     global information_csv, CSV_PATH
     # Create JSON file if not there
     CSV_PATH = os.path.join("out/", WORKER_UUID+'.csv')
-    information_csv = pd.read_csv(CSV_PATH)
+    if not os.path.exists(CSV_PATH):
+        information_csv = pd.DataFrame()
+        information_csv.columns = columns
+    else:
+        information_csv = pd.read_csv(CSV_PATH)
     convertDataTypes()
     if set(information_csv.keys()) != set(columns): # Check CSV
         print_and_log("CSV and columns disagree")
@@ -212,9 +207,9 @@ def recover_or_get_youtube_id_dictionary(args):
         try:
             # The number of queries in csv that haven't
             # been downloaded yet.
-            num_ids_to_get = NUM_VIDS - len(information_csv[(isEmpty("File Path")) &\
+            num_ids_to_get = NUM_VIDS - len(information_csv[(is_empty_or_false("File Path")) &\
                         (information_csv['Query'].str.contains(key))]["Query"].tolist())
-            if num_ids_to_get < 0\
+            if num_ids_to_get <= 0\
                         and not args.rebuild:
                 logging.info("Found enough non-downloaded results with query:" + key +
                              " Using solely cached results.")
@@ -231,13 +226,15 @@ def convert_caption_to_str(trackList):
     Converts a list of `Track` objects to a string
     """
     retStr = ""
+    if trackList == None:
+        return retStr
     for track in trackList:
         retStr += "Starts at " + str(track.start) + "s and lasts " + str(
             track.duration) + "s: " + parser.unescape(track.text) + "\n"
     # Make the characters solely ascii
     return retStr.encode('ascii', 'ignore').decode('ascii')
 
-@retry(wait_fixed=600000, stop_max_attempt_number=5)
+# @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def download_caption(video_id):
     """
     Downloads the captions if available and returns an infodict
@@ -272,6 +269,9 @@ def exists_in_boto3(path, search=False):
     doesn't find it at first.
     '''
     global bucket
+    print(path)
+    if path == "":
+        return False
     if bucket == None:
         bucket = s3.Bucket(DATA_BUCKET_NAME)
     objs = list(bucket.objects.filter(Prefix=path))
@@ -285,7 +285,7 @@ def exists_in_boto3(path, search=False):
     return at_path
 
 # TO-DO: Review this function
-def get_attribute(uuid, requested_columns, HardReset=False):
+def get_attributes(uuid, requested_columns, HardReset=False, categorize=False):
     """
     Gets a list of attributes with all the possible failsafes I can think of.
     Assumptions:
@@ -316,6 +316,8 @@ def get_attribute(uuid, requested_columns, HardReset=False):
         else:
             if column == "File Path": # Already confirmed earlier
                 retArr.append(infoDict["File Path"])
+            elif column == "Worker":
+                retArr.append(WORKER_UUID)
             elif column == "Url":
                 url = uid_to_url(uuid)
                 infoDict["Url"] = uuid
@@ -323,11 +325,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
             elif column == "UUID":
                 retArr.append(uuid)
             elif column == "Date Updated":
-                date = infoDict["Date Updated"]
-                if date == "":
-                    date = datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-                    infoDict["Date Updated"] = date
-                    retArr.append(date)
+                retArr.append(datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
             elif column == "Format":
                 format_ = infoDict["File Path"]
                 format_ = format_[format_.rfind(".")+1:]
@@ -340,7 +338,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                     if vidInfo == None:
                         vidInfo = pafy.new(uid_to_url(uuid))
                     if stream == None:
-                        stream = vidInfo.getbest()
+                        stream = vidInfo.getbest(preftype='mp4')
                     dim = stream.resolution
                 retArr.append(dim)
             elif column == "Query":
@@ -352,7 +350,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     if cap == None:
                         cap = cv2.VideoCapture(path)
-                    retArr.append(cap.get(cv.CV_CAP_PROP_FRAME_COUNT)/cap.get(cv.CV_CAP_PROP_FPS))
+                    retArr.append(cap.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)/cap.get(5)) # 5=cv2.CAP_PROP_FPS
                 elif "Duration" in infoDict.keys():
                     retArr.append(infoDict["Duration"])
                 else:
@@ -361,7 +359,6 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     captions = download_caption(uuid)
                     retArr.append(captions)
-                    infoDict["Captions"] = captions
                 else:
                     retArr.append("")
             elif column == "Size(bytes)":
@@ -383,7 +380,10 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                 if HardReset:
                     if vidInfo == None:
                         vidInfo = pafy.new(uid_to_url(uuid))
-                    desc = parser.unescape(vidInfo.description).encode('ascii', 'ignore').decode('ascii')
+                    try:
+                        desc = parser.unescape(vidInfo.description).encode('ascii', 'ignore').decode('ascii')
+                    except:
+                        continue
                 retArr.append(desc)
                 infoDict["Description"] = desc
             elif column == "Keywords":
@@ -411,7 +411,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                 retArr.append(author) 
                 infoDict["Author"] = author
             elif column == "Faces":
-                if infoDict["File Path"] != "" and HardReset:
+                if infoDict["File Path"] != "" and categorize:
                     doesHaveMovement = isMoving(infoDict["File Path"])
                     doesHaveFaces = False
                     if doesHaveMovement:
@@ -423,7 +423,7 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                     infoDict["Faces"] = ""
                 retArr.append(infoDict["Faces"])
             elif column == "Conversation":
-                if infoDict["File Path"] != "" and HardReset:
+                if infoDict["File Path"] != "" and categorize:
                     doesHaveConversation = hasConversation(uuid)
                     retArr.append(doesHaveConversation)
                     infoDict["Conversation"] = doesHaveConversation
@@ -432,9 +432,9 @@ def get_attribute(uuid, requested_columns, HardReset=False):
                     retArr.append("")
             elif column == "Uploaded":
                 if HardReset:
-                    retArr.append(exists_in_boto3(infoDict["File Path"].replace("out/", "")))
+                    retArr.append(exists_in_boto3(infoDict["File Path"].replace("out/", ""), search=True))
                 else:
-                    retArr.append("")
+                    retArr.append(False)
             else:
                 print_and_log("Invalid requested frame. Column: " + column + " ID: " + uuid, error=True)
                 traceback.print_stack()
@@ -471,7 +471,7 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         uid = str(infoDict["UUID"])
         url = uid_to_url(uid)
         date = time.strftime("%d/%m/%Y %H:%M:%S")
-        columns_except_url_and_uid = columns[3:]
+        columns_except_url_and_uid = columns[4:]
         row_in_csv = information_csv[information_csv["UUID"] == uid] # get row
         if len(row_in_csv) == 1:  # If it is already in the CSV
             try:
@@ -484,21 +484,23 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         elif len(row_in_csv) > 1: # If there are multiple entries
             rows = row_in_csv
             newRow = []
+            rowsToDrop = []
             for column in columns:
                 added = False
-                for row in rows:
-                    if row[column] == "" or pd.isnull(row[column]) or pd.isnan(row[column]):
+                for index, row in rows.iterrows():
+                    rowsToDrop.append(index)
+                    if row[column] == "" or pd.isnull(row[column]):
                         newRow.append(row[column])
                         added = True
                         break
                 if not added:
                     newRow.append("")
-            information_csv.drop(information_csv.index[list(rows.index.values)], inplace=True)
+            information_csv.drop(information_csv.index[rowsToDrop], inplace=True)
             information_csv.loc[len(information_csv)] = pd.Series(
                 newRow, index=columns)
         elif len(row_in_csv) == 0:  # If it isn't already in CSV
-            newRow = [url, uid, date]
-            newRow += get_attribute(uid, columns_except_url_and_uid)
+            newRow = [url, uid, date, infoDict["Query"] if "Query" in infoDict.keys() else ""]
+            newRow += get_attributes(uid, columns_except_url_and_uid)
             assert len(information_csv.keys()) == len(newRow)
             information_csv.loc[len(information_csv)] = pd.Series(
                 newRow, index=columns)
@@ -508,13 +510,19 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         print_and_log("ERROR ON THREAD: FAILED TO ADD OBJECT!!!!!" +
                     str(e)+"\n"+traceback.format_exc(), error=True)
         pdb.set_trace()
-    information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
+    try:
+        information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
+    except:
+        print("HERE?????????????")
 
-@retry(wait_fixed=600000, stop_max_attempt_number=5)
+# @retry(wait_fixed=600000, stop_max_attempt_number=5)
 def scrape_id(query, num_to_download=NUM_VIDS):
     """
     Scrapes youtube and creates or updates entries.
     """
+    global BACKUP_EVERY_N_VIDEOS
+    temp = BACKUP_EVERY_N_VIDEOS
+    BACKUP_EVERY_N_VIDEOS = BACKUP_EVERY_N_VIDEOS*20
     youtube_api = build(YOUTUBE_API_SERVICE_NAME,
                         YOUTUBE_API_VERSION, developerKey=DEVELOPER_KEY)
     # Call the search.list method to retrieve results matching the specified
@@ -534,7 +542,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             try:
                 uid = str(search_result["id"]["videoId"])
                 print_and_log("Adding " + uid + " to CSV. From query: " + str(query))
-                create_or_update_entry({"UUID": uid, "Query": str(query)}, shouldSave=False,)
+                create_or_update_entry({"UUID": uid, "Query": str(query)})
                 if uid not in information_csv["UUID"]:
                     counter += 1
             except Exception, e:
@@ -554,8 +562,9 @@ def scrape_id(query, num_to_download=NUM_VIDS):
             )
         except KeyError:
             allResultsRead = True
+    BACKUP_EVERY_N_VIDEOS = temp
 
-#@timeout_decorator.timeout(300, use_signals=False)
+@retry(wait_fixed=60*15, stop_max_attempt_number=5)
 def download_video(uid):
     """
     Downloads a video of a specific uid
@@ -581,7 +590,7 @@ def download_video(uid):
                 "Size(bytes)": stream.get_filesize(), "File Path": filepath,
                 "Duration": parser.unescape(video_object.duration).encode('ascii', 'ignore').decode('ascii'),
                 "Description": parser.unescape(video_object.description).encode('ascii', 'ignore').decode('ascii'),
-                "Captions": captions, "Date Updated": datetime.now().strftime('%Y/%m/%d %H:%M:%S')}
+                "Captions": captions, "Date Updated": datetime.now().strftime('%Y/%m/%d %H:%M:%S'), "Worker": WORKER_UUID}
     except KeyError, e:
         print_and_log("Pafy backend failure on "+video_id)
     return infoDict
@@ -611,20 +620,19 @@ def start_logger(args):
     logging.getLogger('googleapicliet.discovery_cache').setLevel(
         logging.ERROR)  # Removes annoying OAuth error
 
-#@timeout_decorator.timeout(1000, use_signals=False)
 def convertVideo(video_id):
     """
     Converts a video from webm to mp4
     """
-    path = get_attribute(video_id, ["File Path"])
-    oldPath = row["File Path"].tolist()[0]
+    path = get_attributes(video_id, ["File Path"])[0]
     newPath = "out/toCheck/"+video_id+".mp4"
     ff = ffmpy.FFmpeg(
-        inputs={oldPath: "-y"},
-        outputs={newPath: None}
+        inputs={path: "-y"},
+        outputs={newPath: "-strict -2"}
     )
-    ff.run(stdout=open("/dev/null", 'wb'), stderr=open("/dev/null", 'wb'))
-    delFile(oldPath)
+
+    ff.run()
+    delFile(path)
     information_csv[information_csv["UUID"] == video_id]["Format"] = ".mp4"
     information_csv[information_csv["UUID"] == video_id]["File Path"] = newPath
 
@@ -632,7 +640,7 @@ def stripAudio(video_id):
     """
     Strips wav from mp4
     """
-    path = get_attribute(video_id, ["File Path"])[0]
+    path = get_attributes(video_id, ["File Path"])[0]
     newPath = "out/tmp/"+video_id+".wav"
     if not os.path.exists(newPath):
         ff = ffmpy.FFmpeg(
@@ -666,8 +674,6 @@ def hasConversation(id_):
     framesize = 20  # in msec
     padding_width = 300  # in msec
     path = stripAudio(id_)
-    if not path:
-        return False
     vc = VadCollector.VadCollector(
         path, CONVERSATION_AGGRESSIVENESS, framesize, padding_width, thresh=0.9)
     percentage = vc.get_percentage()
@@ -675,138 +681,57 @@ def hasConversation(id_):
     os.remove(path)
     return percentage > SPEECH_TRHESHHOLD
 
+@timeout_decorator.timeout(60*5, timeout_exception=StopIteration)
 def hasFaces(path):
     """
     Check if a video
     """
     global graph, sess
-    if not os.path.exists(path):
-        print_and_log("isMoving got passed invalid path: " + path, error=True)
+    if not os.path.exists(path) and path != "":
+        print_and_log("hasFaces got passed invalid path: " + path, error=True)
         return
+    if graph == None or sess == None:
+        print_and_log("graph and sess are none, reinitializing...")
+        graph = load_model_pb(FACE_DETECTION_MODEL)
+        sess = tf.Session(graph=graph)
     return checkForFace(path, graph, sess)
 
-def move_from_to(from_, to_):
+def moveFromTo(from_, to_):
     """
-    Moves a file from path to another path and
-    checks in s3 whether it should be moved there as well.
+    Moves a file from path to another path
     """
-    if "out/" in from_ and "out/" in to_:
-        fromKey = from_.split("out/")[1]
-        toKey = to_.split("out/")[1]
-        if UPLOADING and check_if_exists_in_s3(fromKey):
-            bucket.copy({"Bucket": "youtube-video-data", "Key":toKey}, 'otherkey')
+    if not os.path.exists(from_) and from_ != "":
+        print("Move got passed an invalid path: "+from_)
     os.rename(from_, to_)
 
-<<<<<<< HEAD
-
-def check_if_exists_in_s3(key):
-    global bucket
-    objs = list(bucket.objects.filter(Prefix=key))
-    return len(objs) > 0 and objs[0].key == key
-
-#@timeout_decorator.timeout(300, use_signals=False)
-=======
->>>>>>> 6781388b25f6ed46100c90fcb5b3dde311d3d416
 def uploadToS3(args, video_id):
     global bucket
     """
     Upload to S3 and update information_csv
     """
     global information_csv
-    row = information_csv[information_csv["UUID"] == video_id]
-    infoDict = {"UUID": video_id}
-    if information_csv["File Path"].tolist()[0] == "":
-        return infoDict
-    path = row["File Path"].tolist()[0]
-    type_ = row["Format"].tolist()[0]
-    if path == None or not os.path.exists(path):
-<<<<<<< HEAD
-        path = findFile(video_id)
-        if not path:
-            return False
-        infoDict["File Location"] = path
-=======
-        path = findFile(video_id+"."+type_)
-        infoDict["File Path"] = path
->>>>>>> 6781388b25f6ed46100c90fcb5b3dde311d3d416
-        create_or_update_entry(infoDict)
-    if path == None:
-        infoDict["File Path"] = ""
+    path, type_ = get_attributes(video_id, ["File Path", "Format"])
+    infoDict = {"UUID": video_id, "File Path": path, "Format": type_}
+    if path == "":
         return infoDict
     # get second to last occurence
     s3path = path[path.rfind("/", 0, path.rfind("/"))+1:]
-    if not check_if_exists_in_s3(s3path):
-        print_and_log("Uploading " + path + " to " + s3path)
-        bucket.upload_file(path, s3path)
-    else:
-        print_and_log("Already uploaded " + s3path)
+    print_and_log("Uploading " + path + " to " + s3path)
+    bucket.upload_file(path, s3path)
     infoDict["Uploaded"] = True
+    infoDict["Worker"] = "On Master"
     return infoDict
 
-<<<<<<< HEAD
-def findFile(uuid_):
-    global information_csv
-    fileNamemp4 = uuid_+".mp4"
-    fileNamewebm = uuid_+".webm"
-    fileLoc = False
-    for root, subdirs, files in os.walk("out/"):
-        for file_ in files:
-            if fileNamemp4 == file_:
-                fileLoc = str(root+"/"+fileNamemp4)
-            elif fileNamewebm in file_:
-                fileLoc = str(root+"/"+fileNamewebm)
-    return fileLoc
-
-#@timeout_decorator.timeout(600, use_signals=False)
-=======
->>>>>>> 6781388b25f6ed46100c90fcb5b3dde311d3d416
-def categorize_video(args, video_id):
+def categorize_video(video_id):
     """
     Categorize a video, move to correct folder, and return new infoDict
     """
     print_and_log("Categorizing "+video_id)
-<<<<<<< HEAD
-    infoDict = {"UUID": video_id}
-    row = information_csv[information_csv["UUID"] == video_id]
-    fileLoc = row["File Location"].tolist()[0]
-    fileName = video_id+"."+row["Format"].tolist()[0]
-    if not os.path.exists(fileLoc):
-        if not findFile(video_id):
-            information_csv[information_csv["UUID"] == video_id]["Downloaded"] = False
-            return infoDict
-    if "toConvert" in fileLoc:
-        print_and_log("Needs to be converted before categorization..."+video_id)
-        return infoDict
-    if "toCheck" not in fileLoc:
-        print_and_log("Already checked..."+video_id)
-        return infoDict
-    if "" == row["File Location"].tolist()[0]:
-        print_and_log("Video not where expected..."+video_id, error=True)
-        return
-    if "webm" in row["File Location"].tolist()[0]:
-        if args.convert:
-            convertVideo(row["File Location"].tolist()[0])
-        else:
-            print_and_log("Convert argument not selected. Will not convert this video: " + str(video_id))
-        return infoDict
-    path = "out/toCheck/"+fileName
-    print_and_log("Checking movement for " + video_id + "...")
-    doesHaveMovement = isMoving(path)
-    print_and_log(video_id + " moves? " + str(doesHaveMovement))
-    print_and_log("Checking conversation for " + video_id + "...")
-    doesHaveConversation = hasConversation(video_id)
-    print_and_log(video_id + " converses? " + str(doesHaveConversation))
-    doesHaveFaces = False
-    newPath = "out/Trash/"+fileName
-    if doesHaveMovement:
-        print_and_log("Checking faces in " + video_id + "...")
-        doesHaveFaces = hasFaces(path)
-        print_and_log(video_id + " Faces? " + str(doesHaveFaces))
-=======
-    doesHaveConversation, doesHaveFaces, filepath = get_attribute(video_id, ["Conversation", "Faces", "File Path"], True)
+    doesHaveConversation, doesHaveFaces, filepath = get_attributes(video_id, ["Conversation", "Faces", "File Path"], HardReset=True, categorize=True)
     infoDict = {"UUID": video_id, "Faces": doesHaveFaces, "Conversation": doesHaveConversation}
+    if filepath == "":
+        return infoDict
     fileName = filepath[filepath.rfind("/")+1:]
->>>>>>> 6781388b25f6ed46100c90fcb5b3dde311d3d416
     print("Face, "+str(doesHaveFaces)+" | Speech, "+str(doesHaveConversation))
     newPath = ""
     if doesHaveConversation and doesHaveFaces:
@@ -815,13 +740,9 @@ def categorize_video(args, video_id):
         newPath = "out/Conversation/"+fileName
     elif doesHaveFaces:
         newPath = "out/Faces/"+fileName
-<<<<<<< HEAD
-    move_from_to(path, newPath)
-=======
     else:
         newPath = "out/Trash/"+fileName
-    move_from_to(filepath, newPath)
->>>>>>> 6781388b25f6ed46100c90fcb5b3dde311d3d416
+    moveFromTo(filepath, newPath)
     infoDict["Faces"] = doesHaveFaces
     infoDict["Conversation"] = doesHaveConversation
     infoDict["File Path"] = newPath
@@ -838,6 +759,8 @@ def createOutputDirs():
 
 def createBotoDir(folder):
     global bucket
+    if bucket == None:
+        bucket = s3.Bucket(DATA_BUCKET_NAME)
     bucket.put_object(
         Bucket=DATA_BUCKET_NAME,
         Body='',
@@ -872,9 +795,11 @@ def clean_downloads():
     If this process is interupted, please restart it
     and wait until completion.
     """
+    global information_csv, BACKUP_EVERY_N_VIDEOS, bucket
     print_and_log("Cleaning time!!!.....")
     createOutputDirs()
-
+    print_and_log("Deleting duplicates...")
+    information_csv.drop_duplicates(subset="UUID", inplace=True)
     # Remove Duplicates from toConvert and toCheck
     for root, subdirs, files in os.walk("out/toConvert"):
         for file in files:
@@ -888,8 +813,8 @@ def clean_downloads():
     
     # Go through the folders and update the csv to reflect file structure.
     information_csv["File Path"] = ""
-    information_csv["Conversation"] = ""
-    information_csv["Faces"] = ""
+    information_csv["Conversation"] = False
+    information_csv["Faces"] = False
     for root, subdirs, files in os.walk("out/"):
         if len(files) > 0:
             for file in tqdm(files):
@@ -903,76 +828,80 @@ def clean_downloads():
                         delFile(path, "Deleting temporary file "+path)
                 elif ".webm" in file:
                     if "toConvert/" not in path:
-                        move_from_to(path, "out/toConvert/"+uid+".webm")
-                    create_or_update_entry({"UUID": uid, "File Path": "out/toConvert/"+uid+".webm", "Format": "webm"}, shouldSave=False, reset=True)
+                        moveFromTo(path, "out/toConvert/"+uid+".webm")
+                    create_or_update_entry({"UUID": uid, "File Path": "out/toConvert/"+uid+".webm", "Format": "webm", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                 elif ".mp4" in file:
                     if "Multimodal" in root:
-                        create_or_update_entry({"UUID": uid, "Conversation": True, "Faces": True, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Conversation": True, "Faces": True, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "Conversation" in root:
-                        create_or_update_entry({"UUID": uid, "Conversation": True, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Conversation": True, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "Faces" in root:
-                        create_or_update_entry({"UUID": uid, "Faces": True, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Faces": True, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "Trash" in root:
-                        create_or_update_entry({"UUID": uid, "Faces": False, "Conversation":False, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "Faces": False, "Conversation":False, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
                     elif "toCheck" in root:
-                        create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4"}, shouldSave=False, reset=True)
+                        create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
+    information_csv = information_csv[information_csv['UUID'].map(len) == 11]
+    print_and_log("Fixing and updating CSV...")
+    print_and_log("Checking what's in s3...Don't quit here...")
+    information_csv["Uploaded"] = False # don't use get_attributes for speed benefit
+    for item in bucket.objects.all():
+        if 'mp4' in item.key:
+            # print(item.key)
+            create_or_update_entry({"UUID":item.key[item.key.rfind("/")+1:-4], "Uploaded":True}, shouldSave=False)
     saveCSV(CSV_PATH)
 
-def categorize_video_wrapper(args, video_id):
+def categorize_video_wrapper(video_id):
     try:
-        return categorize_video(args, video_id)
+        return categorize_video(video_id)
     except Exception, e:
-        print_and_log("Error in categorization: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in categorization on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def download_video_wrapper(video_id):
     try:
         return download_video(video_id)
     except Exception, e:
-        print_and_log("Error in downloading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in downloading video on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def uploadToS3_wrapper(args, video_id):
     try:
         return uploadToS3(args, video_id)
     except Exception, e:
-        print_and_log("Error in uploading video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in uploading video on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
 def convert_wrapper(id_):
     try:
         return convertVideo(id_)
     except Exception, e:
-        print_and_log("Error in converting video: " + str(e)+"\n"+traceback.format_exc(), error=True)
+        print_and_log("Error in converting video: on id: " + video_id + ": " + str(e)+"\n"+traceback.format_exc(), error=True)
         return None
 
-def pull_master_csv():
-    saveCSVToBoto3()
-    s3 = boto3.resource('s3')
-    client = boto3.client('s3')
-
+def print_error(e):
+    print_and_log(str(e), error=True)
 
 def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
     ######################### Initialize #########################
     args = parse_args()
-    shutil.rmtree("out/tmp/") # Remove temporary files
+    if os.path.exists("out/tmp/"):
+        shutil.rmtree("out/tmp/") # Remove temporary files
+    createOutputDirs()
+    createBotoDirs()
     #### Make remote connections and load models if necessary
     print_and_log("Connecting to s3...")
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(DATA_BUCKET_NAME)
-    createBotoDirs()
     print_and_log("Created Boto3 directories if not already there")
 
     if args.categorize:
         print_and_log("Loading Face Tracker...")
         graph = load_model_pb(FACE_DETECTION_MODEL)
         sess = tf.Session(graph=graph)
-        print_and_log("Processing downloaded Videos first...")
-    createOutputDirs()
     NUM_VIDS = int(args.num_vids)
     BACKUP_EVERY_N_VIDEOS = int(args.backup_every)
-    UPLOADING = args.upload
 
     OPEN_ON_DOWNLOAD = args.openOnDownload
     if args.query != None:
@@ -989,31 +918,34 @@ def main():
     ################################ Run ################################
     if args.clean:
         clean_downloads()
-    pool = MyPool(processes=int(args.num_threads))
+    pool = Pool(processes=int(args.num_threads))
     if args.query != None:
         print_and_log("Switching to download new videos...")
         for q in QUERIES:
-            for _id in information_csv[(information_csv["Query"] == q) & (isEmpty("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
-                download_video(_id)
-
+            for _id in information_csv[(information_csv["Query"] == q) & (is_empty_or_false("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
+                # download_video(_id)
+                pool.apply_async(download_video, args=(_id,))
     if args.convert:
         print_and_log("Starting Conversion...")
-        for _id in tqdm(information_csv[((information_csv['File Path'].str.contains("webm")) &
-                                         (~isEmpty("File Path")))]["UUID"].tolist()):
+        for _id in tqdm(information_csv[(information_csv['File Path'].str.contains("webm")) &
+                                         (~is_empty_or_false("File Path")) &
+                                         (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             convert_wrapper(_id)
 
     if args.categorize:
         print_and_log("Switching to Categorize...")
-        for _id in tqdm(information_csv.loc[(~isEmpty("File Path")) & (information_csv['File Path'].str.contains("toCheck"))]["UUID"].tolist()):
-            create_or_update_entry(categorize_video_wrapper(args, _id))
-            # pool.apply_async(categorize_video_wrapper, args=(args, _id), callback=create_or_update_entry)
+        for _id in tqdm(information_csv.loc[(information_csv['File Path'].str.contains("toCheck")) &
+                                            (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
+            create_or_update_entry(categorize_video_wrapper(_id))
+            # pool.apply_async(categorize_video_wrapper, args=(_id,), callback=create_or_update_entry, error_callback=print_error)
     if args.upload:
         print_and_log("Switching to Uploading...")
-        for _id in tqdm(information_csv[((~isEmpty("File Path")) &
-                                          ((information_csv["Uploaded"] == False) | (isEmpty("Uploaded"))) &
+        for _id in tqdm(information_csv[(~is_empty_or_false("File Path")) &
+                                          ((information_csv["Uploaded"] == False) | (is_empty_or_false("Uploaded"))) &
                                           (information_csv['File Path'].str.contains("Multimodal") |
                                            information_csv['File Path'].str.contains("Conversation") |
-                                           information_csv['File Path'].str.contains("Faces")))]["UUID"].tolist()):
+                                           information_csv['File Path'].str.contains("Faces")) &
+                                           (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
     saveCSV(CSV_PATH)
     pool.close()
