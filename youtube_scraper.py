@@ -197,7 +197,6 @@ def recover_or_get_youtube_id_dictionary(args):
         information_csv.columns = columns
     else:
         information_csv = pd.read_csv(CSV_PATH)
-        # pdb.set_trace()
     convertDataTypes()
     if set(information_csv.keys()) != set(columns): # Check CSV
         print_and_log("CSV and columns disagree")
@@ -842,14 +841,11 @@ def clean_downloads():
                         create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
     information_csv = information_csv[information_csv['UUID'].map(len) == 11]
     print_and_log("Fixing and updating CSV...")
-    temp = BACKUP_EVERY_N_VIDEOS
-    BACKUP_EVERY_N_VIDEOS = 100
     print_and_log("Checking what's in s3...")
     information_csv["Uploaded"] = False # don't use get_attributes for speed benefit
     for item in bucket.objects.all():
         if 'mp4' in item.key:
-            create_or_update_entry({"UUID":item.key[item.key.rfind("/")+1:-4], "Uploaded":True})
-    BACKUP_EVERY_N_VIDEOS = temp
+            create_or_update_entry({"UUID":item.key[item.key.rfind("/")+1:-4], "Uploaded":True}, shouldSave=False)
     saveCSV(CSV_PATH)
 
 def categorize_video_wrapper(video_id):
