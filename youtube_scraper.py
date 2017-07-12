@@ -840,7 +840,7 @@ def clean_downloads():
                     elif "toCheck" in root:
                         create_or_update_entry({"UUID": uid, "File Path": path, "Format": "mp4", "Worker": WORKER_UUID}, shouldSave=False, reset=True)
     information_csv = information_csv[information_csv['UUID'].map(len) == 11]
-    print_and_log("Fixing and updating CSV...")
+    print_and_log("Fixing and updating CSV...Don't quit here...")
     print_and_log("Checking what's in s3...")
     information_csv["Uploaded"] = False # don't use get_attributes for speed benefit
     for item in bucket.objects.all():
