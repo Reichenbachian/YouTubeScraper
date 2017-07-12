@@ -133,7 +133,7 @@ def saveCSVToBoto3():
                     csvs.append(name)
                     s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
             master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
-            master_df = master_df.sort_values(['Query'])
+            master_df = master_df.sort_values(['Query', "File Path", "Uploaded", "Size(bytes)"])
             master_df.drop_duplicates(subset="UUID", inplace=True)
             master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
             bucket.upload_file("out/tmp/master.csv", "Workers/Archive/master"+str(time.time())+".csv")
