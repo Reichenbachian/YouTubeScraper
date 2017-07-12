@@ -19,11 +19,11 @@ swig -I$(pwd)/opencv-swig/lib/ -I/usr/local/Cellar/opencv/HEAD-01e34b6/include/ 
 ```
 Generic:
 ```
-g++ -shared -fpic MovementDetect_wrap.cxx MovementDetect.o -I{Virtualenv python header location} -L{Virtualenv python library location} -L{opencv library location} -lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_gpu -lopencv_highgui -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_nonfree -lopencv_objdetect -lopencv_ocl -lopencv_photo -lopencv_stitching -lopencv_superres -lopencv_ts -lopencv_video -lopencv_videostab -lpython2.7 -o _MovementDetect.so
+g++ -shared -fpic MovementDetect_wrap.cxx MovementDetect.o -I{Virtualenv python header location} -L{Virtualenv python library location} -L{opencv library location} -lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_gpu -lopencv_highgui -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_nonfree -lopencv_objdetect -lopencv_ocl -lopencv_photo -lopencv_stitching -lopencv_superres -lopencv_ts -lopencv_video -lopencv_videostab [if mac: -undefined dynamic_lookup; if ubuntu: -lpython2.7] -o _MovementDetect.so
 ```
 Example:
 ```
-g++ -shared -fpic MovementDetect_wrap.cxx MovementDetect.o -I/Users/localhost/Desktop/Projects/Working/Affectiva/affEnv/include/python2.7 -L/Users/localhost/Desktop/Projects/Working/Affectiva/affEnv/lib/python2.7 -L/usr/local/Cellar/opencv/HEAD-01e34b6/lib -lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_gpu -lopencv_highgui -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_nonfree -lopencv_objdetect -lopencv_ocl -lopencv_photo -lopencv_stitching -lopencv_superres -lopencv_ts -lopencv_video -lopencv_videostab -lpython2.7 -o _MovementDetect.so
+g++ -shared -fpic MovementDetect_wrap.cxx MovementDetect.o -I/Users/localhost/Desktop/Projects/Working/Affectiva/affEnv/include/python2.7 -L/Users/localhost/Desktop/Projects/Working/Affectiva/affEnv/lib/python2.7 -L/usr/local/Cellar/opencv/HEAD-01e34b6/lib -lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_gpu -lopencv_highgui -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_nonfree -lopencv_objdetect -lopencv_ocl -lopencv_photo -lopencv_stitching -lopencv_superres -lopencv_ts -lopencv_video -lopencv_videostab -undefined dynamic_lookup -o _MovementDetect.so
 ```
 6. Create ~/.aws/config file with contents as follows (Note: You might need a .s3config too.)
 ```
