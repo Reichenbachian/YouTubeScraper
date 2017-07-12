@@ -33,7 +33,7 @@ import tensorflow as tf
 from CheckFaces import load_model_pb, checkForFace
 import VadCollector
 import traceback
-import MovementDetect
+# import MovementDetect
 from datetime import datetime
 import timeout_decorator
 
@@ -132,9 +132,16 @@ def saveCSVToBoto3():
                     name = name[name.rfind('/')+1:]
                     csvs.append(name)
                     s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
+                    print("Value", pd.read_csv("out/tmp/"+name).iloc[0]["Query"], "CSV", name)
+            # pdb.set_trace()
             master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
+            # pdb.set_trace()
+            master_df = master_df.sort_values(['Query'])
+            # pdb.set_trace()
             master_df.drop_duplicates(subset="UUID", inplace=True)
             master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
+            # pdb.set_trace()
+            bucket.upload_file("out/tmp/master.csv", "Workers/master"+str(time.time())+".csv")
             bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
         except Exception, e:
             pdb.set_trace()
@@ -186,9 +193,11 @@ def recover_or_get_youtube_id_dictionary(args):
     # Create JSON file if not there
     CSV_PATH = os.path.join("out/", WORKER_UUID+'.csv')
     if not os.path.exists(CSV_PATH):
-        information_csv = pd.DataFrame(columns=columns)
+        information_csv = pd.DataFrame()
+        information_csv.columns = columns
     else:
         information_csv = pd.read_csv(CSV_PATH)
+        # pdb.set_trace()
     convertDataTypes()
     if set(information_csv.keys()) != set(columns): # Check CSV
         print_and_log("CSV and columns disagree")
