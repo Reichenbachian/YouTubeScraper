@@ -33,7 +33,7 @@ import tensorflow as tf
 from CheckFaces import load_model_pb, checkForFace
 import VadCollector
 import traceback
-# import MovementDetect
+import MovementDetect
 from datetime import datetime
 import timeout_decorator
 
