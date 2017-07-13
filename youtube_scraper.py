@@ -110,7 +110,7 @@ def parse_args():
     return args
 
 def saveCSVToBoto3():
-    global bucket, s3
+    global bucket, s3, information_csv
     print_and_log("Syncing to s3...")
     fileName = WORKER_UUID+'.csv'
     if bucket == None:
@@ -127,25 +127,27 @@ def saveCSVToBoto3():
             client = boto3.client('s3')
             master_df = pd.DataFrame(columns=columns)
             for item in client.list_objects(Bucket=DATA_BUCKET_NAME, Prefix='Workers')["Contents"]:
-                if 'csv' in item["Key"] and "master" not in item["Key"]:
+                if 'csv' in item["Key"] and "master" not in item["Key"] and "Archive" not in item["Key"]:
                     name = item["Key"]
                     name = name[name.rfind('/')+1:]
                     csvs.append(name)
                     s3.meta.client.download_file(DATA_BUCKET_NAME, item["Key"], "out/tmp/"+name)
-                    print("Value", pd.read_csv("out/tmp/"+name).iloc[0]["Query"], "CSV", name)
-            # pdb.set_trace()
             master_df = pd.concat([pd.read_csv("out/tmp/"+name) for name in csvs])
-            # pdb.set_trace()
-            master_df = master_df.sort_values(['Query'])
-            # pdb.set_trace()
+            master_df = master_df.sort_values(['Query', "File Path", "Uploaded", "Size(bytes)"])
             master_df.drop_duplicates(subset="UUID", inplace=True)
             master_df.to_csv("out/tmp/master.csv", index=False, encoding='utf-8')
-            # pdb.set_trace()
-            bucket.upload_file("out/tmp/master.csv", "Workers/master"+str(time.time())+".csv")
+            bucket.upload_file("out/tmp/master.csv", "Workers/Archive/master"+str(time.time())+".csv")
             bucket.upload_file("out/tmp/master.csv", "Workers/master.csv")
+            moveFromTo("out/tmp/master.csv", "Workers/master.csv")
+            information_csv = master_df
         except Exception, e:
             pdb.set_trace()
-    s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", CSV_PATH)
+    else:
+        s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", "Workers/master.csv")
+        master_df = pd.read_csv("Workers/master.csv")
+        master_df = master_df.sort_values(['Query'])
+        master_df.drop_duplicates(subset="UUID", inplace=True)
+        information_csv = master_df
 
 def saveCSV(path):
     global sync_counter
@@ -181,7 +183,7 @@ def convertDataTypes():
 def is_empty_or_false(column):
     if information_csv[column].dtype == bool:
         return (information_csv[column].isnull() | (information_csv[column] == False))
-    return (information_csv[column] == "") | (information_csv["File Path"].str.contains("nan"))
+    return (information_csv[column] == "") | (information_csv["File Path"].isnull())
 
 def recover_or_get_youtube_id_dictionary(args):
     """
@@ -193,8 +195,7 @@ def recover_or_get_youtube_id_dictionary(args):
     # Create JSON file if not there
     CSV_PATH = os.path.join("out/", WORKER_UUID+'.csv')
     if not os.path.exists(CSV_PATH):
-        information_csv = pd.DataFrame()
-        information_csv.columns = columns
+        information_csv = pd.DataFrame(columns=columns)
     else:
         information_csv = pd.read_csv(CSV_PATH)
     convertDataTypes()
@@ -219,6 +220,7 @@ def recover_or_get_youtube_id_dictionary(args):
         except:
             pdb.set_trace()
 
+@retry(wait_fixed=10, stop_max_attempt_number=5)
 def convert_caption_to_str(trackList):
     """
     Converts a list of `Track` objects to a string
@@ -232,7 +234,7 @@ def convert_caption_to_str(trackList):
     # Make the characters solely ascii
     return retStr.encode('ascii', 'ignore').decode('ascii')
 
-# @retry(wait_fixed=600000, stop_max_attempt_number=5)
+@retry(wait_fixed=600000, stop_max_attempt_number=5)
 def download_caption(video_id):
     """
     Downloads the captions if available and returns an infodict
@@ -245,10 +247,13 @@ def download_caption(video_id):
         saveCSV(CSV_PATH)
     logging.info("Downloading caption at url: %s" %
                  ("youtube.com/watch?v="+video_id))
-    capStr = convert_caption_to_str(cli.get_track(video_id, ['en', "en-GB"]))
-    logging.info("Finished downloading caption at url: %s" %
+    try:
+        capStr = convert_caption_to_str(cli.get_track(video_id, ['en', "en-GB"]))
+        logging.info("Finished downloading caption at url: %s" %
                  ("youtube.com/watch?v="+video_id))
-    return {"UUID": video_id, "Captions": capStr}
+        return capStr
+    except:
+        print("Failed getting caption for", video_id)
 
 def findFile(uuid):
     mp4File = uuid+".mp4"
@@ -267,7 +272,6 @@ def exists_in_boto3(path, search=False):
     doesn't find it at first.
     '''
     global bucket
-    print(path)
     if path == "":
         return False
     if bucket == None:
@@ -508,12 +512,9 @@ def create_or_update_entry(infoDict, shouldSave=True, reset=False):
         print_and_log("ERROR ON THREAD: FAILED TO ADD OBJECT!!!!!" +
                     str(e)+"\n"+traceback.format_exc(), error=True)
         pdb.set_trace()
-    try:
-        information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
-    except:
-        print("HERE?????????????")
+    information_csv = information_csv[pd.notnull(information_csv['UUID'])] # Remove all null UUID entries from csv, they are useless
 
-# @retry(wait_fixed=600000, stop_max_attempt_number=5)
+@retry(wait_fixed=600000, stop_max_attempt_number=5)
 def scrape_id(query, num_to_download=NUM_VIDS):
     """
     Scrapes youtube and creates or updates entries.
@@ -921,7 +922,10 @@ def main():
         for q in QUERIES:
             for _id in information_csv[(information_csv["Query"] == q) & (is_empty_or_false("File Path"))]["UUID"].tolist()[:NUM_VIDS]:
                 # download_video(_id)
-                pool.apply_async(download_video, args=(_id,))
+                pool.apply_async(download_video, args=(_id,), callback=create_or_update_entry)
+    pool.close()
+    pool.join()
+    pool = Pool(processes=int(args.num_threads))
     if args.convert:
         print_and_log("Starting Conversion...")
         for _id in tqdm(information_csv[(information_csv['File Path'].str.contains("webm")) &
@@ -944,9 +948,9 @@ def main():
                                            information_csv['File Path'].str.contains("Faces")) &
                                            (information_csv["Worker"] == WORKER_UUID)]["UUID"].tolist()):
             pool.apply_async(uploadToS3_wrapper, args=(args, _id), callback=create_or_update_entry)
-    saveCSV(CSV_PATH)
     pool.close()
     pool.join()
+    saveCSV(CSV_PATH)
 
 if __name__ == "__main__":
     main()
