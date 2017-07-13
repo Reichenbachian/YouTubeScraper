@@ -27,6 +27,7 @@ import time
 import ffmpy
 import boto3
 import pdb
+from uuid import uuid4
 import re
 from tqdm import tqdm
 import tensorflow as tf
@@ -61,6 +62,10 @@ CONVERSATION_AGGRESSIVENESS = 2
 CSV_PATH = None  # worker_id.csv should be in out/
 QUERIES = []  # Queries given as command line arguments split up.
 OPEN_ON_DOWNLOAD = False # Should the program open the videos once downloaded?
+if not os.path.exists("Worker_Key.key"): # Create worker uuid if doesn't have one
+    uid = str(uuid4())
+    print("Created Worker Key...", uid)
+    open("Worker_Key.key", 'w+').write(uid+"\n" + "False")
 WORKER_UUID = open("Worker_Key.key").readlines()[0].strip()
 MASTER_PROCESS = open("Worker_Key.key").readlines()[1].strip() == "True" # Should this process take it upon itself to join cloud csv's
 bucket, graph, sess = None, None, None  # Initializing variables globally
@@ -72,7 +77,9 @@ columns = ["Url", "UUID", "Date Updated", "Query", "Format", "File Path", "Dimen
             "Title", "Description", "Duration",
            "Captions", "Size(bytes)", "Keywords", "Viewcount", "Faces", "Conversation", "Author", "Uploaded", "Worker"]
 
-columnTypes = [str, str, str, str, str, str, str, str, str, float, str, float, str, float, bool, bool, str, bool, str]
+columnTypes = [str, str, str, str, str, str, str,
+                    str, str, str,
+                    str, float, str, float, bool, bool, str, bool, str]
 information_csv = pd.DataFrame(columns=columns)
 backup_counter = 0
 sync_counter = 0
@@ -145,6 +152,7 @@ def saveCSVToBoto3():
     else:
         s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", "Workers/master.csv")
         master_df = pd.read_csv("Workers/master.csv")
+        master_df = pd.concat([information_csv, master_df])
         master_df = master_df.sort_values(['Query'])
         master_df.drop_duplicates(subset="UUID", inplace=True)
         information_csv = master_df
@@ -183,7 +191,7 @@ def convertDataTypes():
 def is_empty_or_false(column):
     if information_csv[column].dtype == bool:
         return (information_csv[column].isnull() | (information_csv[column] == False))
-    return (information_csv[column] == "") | (information_csv["File Path"].isnull())
+    return (information_csv[column] == "") | (information_csv["File Path"].isnull()) | (information_csv[column] == "nan")
 
 def recover_or_get_youtube_id_dictionary(args):
     """
@@ -198,6 +206,8 @@ def recover_or_get_youtube_id_dictionary(args):
         information_csv = pd.DataFrame(columns=columns)
     else:
         information_csv = pd.read_csv(CSV_PATH)
+    s3.meta.client.download_file(DATA_BUCKET_NAME, "Workers/master.csv", "Workers/master.csv")
+    information_csv = pd.concat([information_csv, pd.read_csv("Workers/master.csv")])
     convertDataTypes()
     if set(information_csv.keys()) != set(columns): # Check CSV
         print_and_log("CSV and columns disagree")
@@ -207,7 +217,7 @@ def recover_or_get_youtube_id_dictionary(args):
             # The number of queries in csv that haven't
             # been downloaded yet.
             num_ids_to_get = NUM_VIDS - len(information_csv[(is_empty_or_false("File Path")) &\
-                        (information_csv['Query'].str.contains(key))]["Query"].tolist())
+                        (information_csv['Query'] == key)])
             if num_ids_to_get <= 0\
                         and not args.rebuild:
                 logging.info("Found enough non-downloaded results with query:" + key +
@@ -546,7 +556,7 @@ def scrape_id(query, num_to_download=NUM_VIDS):
                     counter += 1
             except Exception, e:
                 print("Error on item: ", str(e)+"\n"+traceback.format_exc())
-            if counter >= num_to_download:
+            if counter > num_to_download:
                 counter = 0
                 allResultsRead = True
                 break
@@ -751,7 +761,7 @@ def createOutputDirs():
     """
     Creates the output directory
     """
-    folders = ["out/", "out/toCheck/", "out/tmp/", "out/toConvert/", "out/Conversation/",
+    folders = ["Workers/", "out/", "out/toCheck/", "out/tmp/", "out/toConvert/", "out/Conversation/",
                 "out/Multimodal/", "out/Faces/", "out/Trash/"]
     for folder in folders:
         createDir(folder)
@@ -884,6 +894,7 @@ def main():
     global information_csv, NUM_VIDS, BACKUP_EVERY_N_VIDEOS, OPEN_ON_DOWNLOAD, QUERIES, bucket, graph, sess
     ######################### Initialize #########################
     args = parse_args()
+
     if os.path.exists("out/tmp/"):
         shutil.rmtree("out/tmp/") # Remove temporary files
     createOutputDirs()
@@ -906,6 +917,7 @@ def main():
         QUERIES = [args.query] if ',' not in args.query else args.query.split(",")
         QUERIES = [x.strip() for x in QUERIES]
     start_logger(args)
+
     recover_or_get_youtube_id_dictionary(args)
     information_csv = information_csv.replace(np.nan, "")
     saveCSV(CSV_PATH)
@@ -925,7 +937,9 @@ def main():
                 pool.apply_async(download_video, args=(_id,), callback=create_or_update_entry)
     pool.close()
     pool.join()
+
     pool = Pool(processes=int(args.num_threads))
+
     if args.convert:
         print_and_log("Starting Conversion...")
         for _id in tqdm(information_csv[(information_csv['File Path'].str.contains("webm")) &
